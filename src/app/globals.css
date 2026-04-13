@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+:root {
+  --accent: #FF6B35;
+  --accent-red: #F04452;
+  --accent-blue: #3182F6;
+}
+
+body {
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, 'Helvetica Neue', 'Segoe UI', 'Apple SD Gothic Neo',
+    'Noto Sans KR', 'Malgun Gothic', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
