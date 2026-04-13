@@ -14,7 +14,7 @@ export default function HomePage() {
         <CategoryBar selected="all" />
 
         {/* 히어로 배너 */}
-        <section className="mx-4 mt-2 rounded-2xl p-8 text-white" style={{ background: 'linear-gradient(135deg, #FF6B35, #FF4444)' }}>
+        <section className="mx-4 mt-2 rounded-2xl p-8 text-white" style={{ background: 'linear-gradient(135deg, #E53935, #C62828)' }}>
           <h1 className="text-2xl md:text-3xl font-extrabold">가성비 꿀템만 모아놨어요 🛒</h1>
           <p className="mt-2 text-sm md:text-base opacity-90">카테고리별 최저가 상품을 한눈에 확인하세요</p>
         </section>

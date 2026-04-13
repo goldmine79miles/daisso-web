@@ -3,7 +3,7 @@ import type { Product } from '@/data/types';
 
 export default function ProductCard({ product }: { product: Product }) {
   const tagLabel = product.tags[0];
-  const tagColor = tagLabel === 'hot' ? 'bg-orange-500' : tagLabel === 'best' ? 'bg-blue-500' : tagLabel === 'new' ? 'bg-green-500' : 'bg-gray-400';
+  const tagColor = tagLabel === 'hot' ? 'bg-red-500' : tagLabel === 'best' ? 'bg-blue-500' : tagLabel === 'new' ? 'bg-green-500' : 'bg-gray-400';
 
   return (
     <Link href={`/product/${product.id}`} className="block bg-white rounded-xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
