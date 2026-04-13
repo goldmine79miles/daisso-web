@@ -4,8 +4,8 @@ export default function Navbar() {
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
-        <Link href="/" className="text-xl font-extrabold" style={{ color: 'var(--accent)' }}>
-          다있어
+        <Link href="/">
+          <img src="/logo-light.png" alt="다있어" className="h-9 object-contain" />
         </Link>
         <div className="flex items-center gap-3">
           <Link href="/search" className="p-2 text-lg hover:bg-gray-100 rounded-lg">🔍</Link>
