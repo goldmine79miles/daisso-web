@@ -2,27 +2,55 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const DISCONNECT_SECRET = process.env.TOSS_DISCONNECT_SECRET || '';
 
-export async function POST(request: NextRequest) {
-  try {
-    if (DISCONNECT_SECRET) {
-      const authHeader = request.headers.get('authorization');
-      if (!authHeader || authHeader !== `Basic ${DISCONNECT_SECRET}`) {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-      }
-    }
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
 
-    const body = await request.json().catch(() => ({}));
-    const { userKey } = body as { userKey?: string };
-
-    // TODO: 사용자 데이터 삭제 로직 (DB 연동 후 구현)
-    console.log(`[toss-disconnect] User disconnected: ${userKey ?? 'unknown'}`);
-
-    return NextResponse.json({ success: true });
-  } catch {
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
 }
 
-export async function GET() {
-  return NextResponse.json({ success: true });
+function verifyBasicAuth(req: NextRequest): boolean {
+  if (!DISCONNECT_SECRET) return true;
+  const authHeader = req.headers.get('authorization');
+  if (!authHeader?.startsWith('Basic ')) return false;
+  const decoded = Buffer.from(authHeader.slice(6), 'base64').toString('utf8');
+  return decoded === DISCONNECT_SECRET;
+}
+
+export async function GET(req: NextRequest) {
+  if (!verifyBasicAuth(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS });
+  }
+  const url = new URL(req.url);
+  const userKey = url.searchParams.get('userKey');
+  if (userKey) {
+    console.log(`[toss-disconnect] User disconnected: ${userKey}`);
+  } else {
+    console.log('[toss-disconnect] Test ping received');
+  }
+  return NextResponse.json({ resultType: 'SUCCESS' }, { headers: CORS_HEADERS });
+}
+
+export async function POST(req: NextRequest) {
+  if (!verifyBasicAuth(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS });
+  }
+  try {
+    let userKey: string | undefined;
+    try {
+      const body = await req.json();
+      userKey = body.userKey;
+    } catch {}
+    if (userKey) {
+      console.log(`[toss-disconnect] User disconnected: ${userKey}`);
+    } else {
+      console.log('[toss-disconnect] Test ping received');
+    }
+    return NextResponse.json({ resultType: 'SUCCESS' }, { headers: CORS_HEADERS });
+  } catch {
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500, headers: CORS_HEADERS });
+  }
 }
