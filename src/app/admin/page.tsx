@@ -114,6 +114,24 @@ export default function AdminPage() {
   const [searchData, setSearchData] = useState<GoldboxItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
 
+  /* ─── 데이터 로딩 ─────────────────────────── */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!authed) return;
+    (async () => {
+      setProductsLoading(true);
+      try {
+        const res = await fetch('/api/products?active=all');
+        const json = await res.json();
+        setProducts(json.data || []);
+      } catch {
+        await fetch('/api/db/init', { method: 'POST' });
+        setProducts([]);
+      }
+      setProductsLoading(false);
+    })();
+  }, [authed]);
+
   /* ─── 로그인 ─────────────────────────── */
   if (!authed) {
     return (
@@ -142,7 +160,6 @@ export default function AdminPage() {
     );
   }
 
-  /* ─── 데이터 로딩 ─────────────────────────── */
   async function loadProducts() {
     setProductsLoading(true);
     try {
@@ -150,15 +167,11 @@ export default function AdminPage() {
       const json = await res.json();
       setProducts(json.data || []);
     } catch {
-      // 테이블 없으면 초기화 시도
       await fetch('/api/db/init', { method: 'POST' });
       setProducts([]);
     }
     setProductsLoading(false);
   }
-
-  // eslint-disable-next-line react-hooks/rules-of-hooks
-  useEffect(() => { loadProducts(); }, []);
 
   /* ─── 상품 CRUD ─────────────────────────── */
   async function saveProduct() {
