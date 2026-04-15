@@ -1,21 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 
 const ADMIN_PASSWORD = 'star888!!!';
-
-interface ProductItem {
-  productId: string;
-  productName: string;
-  productPrice: number;
-  productImage: string;
-  productUrl: string;
-  isRocket?: boolean;
-  isFreeShipping?: boolean;
-  categoryName: string;
-  originalPrice: number;
-  discountRate: number;
-}
 
 /* ─── 스타일 상수 ─────────────────────────── */
 const C = {
@@ -29,105 +16,284 @@ const C = {
   muted: '#ADB5BD',
   border: '#F1F3F5',
   green: '#00C471',
+  red: '#E53935',
   coupang: '#E4002B',
   toss: '#3182F6',
   kurly: '#5F0080',
   temu: '#FB7701',
 };
 
-const platformInfo = {
-  coupang: { name: '쿠팡', color: C.coupang, tag: 'COUPANG' },
-  toss: { name: '토스쇼핑', color: C.toss, tag: 'TOSS' },
-  kurly: { name: '컬리', color: C.kurly, tag: 'KURLY' },
-  temu: { name: '테무', color: C.temu, tag: 'TEMU' },
-};
+const PLATFORMS = [
+  { id: 'coupang', name: '쿠팡', color: C.coupang },
+  { id: 'toss', name: '토스쇼핑', color: C.toss },
+  { id: 'kurly', name: '컬리', color: C.kurly },
+  { id: 'temu', name: '테무', color: C.temu },
+];
 
-type TabId = 'guide' | 'goldbox' | 'search' | 'links';
+const CATEGORIES = [
+  { id: 'all', name: '전체' },
+  { id: 'living', name: '생활' },
+  { id: 'food', name: '식품' },
+  { id: 'electronics', name: '전자기기' },
+  { id: 'fashion', name: '패션' },
+  { id: 'beauty', name: '뷰티' },
+  { id: 'baby', name: '육아' },
+  { id: 'health', name: '건강' },
+  { id: 'pet', name: '반려동물' },
+];
+
+const SECTIONS = [
+  { id: 'ranking', name: '랭킹', desc: '다들 이거 사고 있어요' },
+  { id: 'recommend', name: '추천', desc: '추천 상품' },
+  { id: 'deal', name: '득템', desc: '할인 탭' },
+];
+
+interface Product {
+  id: number;
+  title: string;
+  image_url: string | null;
+  affiliate_url: string;
+  platform: string;
+  category: string;
+  section: string;
+  sale_price: number;
+  original_price: number;
+  discount_rate: number;
+  sort_order: number;
+  is_active: boolean;
+}
+
+interface GoldboxItem {
+  productId: string;
+  productName: string;
+  productPrice: number;
+  productImage: string;
+  productUrl: string;
+  isRocket?: boolean;
+  categoryName: string;
+  originalPrice: number;
+  discountRate: number;
+}
+
+type TabId = 'products' | 'add' | 'goldbox' | 'search' | 'guide';
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState('');
-  const [tab, setTab] = useState<TabId>('guide');
+  const [tab, setTab] = useState<TabId>('products');
+
+  // 상품 관리
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [filterSection, setFilterSection] = useState('all');
+  const [filterPlatform, setFilterPlatform] = useState('all');
+
+  // 상품 등록
+  const [form, setForm] = useState({
+    title: '',
+    image_url: '',
+    affiliate_url: '',
+    platform: 'coupang',
+    category: 'all',
+    section: 'recommend',
+    sale_price: '',
+    original_price: '',
+    discount_rate: '',
+  });
+  const [saving, setSaving] = useState(false);
+
+  // 수정 모달
+  const [editProduct, setEditProduct] = useState<Product | null>(null);
 
   // Goldbox
-  const [goldboxData, setGoldboxData] = useState<ProductItem[]>([]);
+  const [goldboxData, setGoldboxData] = useState<GoldboxItem[]>([]);
   const [goldboxLoading, setGoldboxLoading] = useState(false);
 
   // Search
   const [keyword, setKeyword] = useState('');
-  const [searchData, setSearchData] = useState<ProductItem[]>([]);
+  const [searchData, setSearchData] = useState<GoldboxItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
-
-  // Links
-  const [linkPlatform, setLinkPlatform] = useState<'coupang' | 'toss' | 'kurly' | 'temu'>('coupang');
-  const [urls, setUrls] = useState('');
-  const [deeplinkResult, setDeeplinkResult] = useState<Array<{ originalUrl: string; shortenUrl: string }>>([]);
-  const [deeplinkLoading, setDeeplinkLoading] = useState(false);
 
   /* ─── 로그인 ─────────────────────────── */
   if (!authed) {
     return (
       <div style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: C.bg,
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Pretendard Variable", system-ui, sans-serif',
+        minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: C.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Pretendard Variable", system-ui, sans-serif',
       }}>
-        <div style={{
-          width: 360,
-          padding: 32,
-          borderRadius: 20,
-          background: C.card,
-          boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        }}>
+        <div style={{ width: 360, padding: 32, borderRadius: 20, background: C.card, boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}>
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: -0.5 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0 }}>
               다있어 <span style={{ color: C.primary }}>Admin</span>
             </h1>
             <p style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>관리자 비밀번호를 입력해주세요</p>
           </div>
-          <input
-            type="password"
-            value={pw}
-            onChange={e => setPw(e.target.value)}
+          <input type="password" value={pw} onChange={e => setPw(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && pw === ADMIN_PASSWORD && setAuthed(true)}
             placeholder="비밀번호"
-            style={{
-              width: '100%',
-              padding: '14px 16px',
-              fontSize: 15,
-              borderRadius: 12,
-              border: `1px solid ${C.border}`,
-              background: C.bg,
-              outline: 'none',
-              boxSizing: 'border-box',
-              fontFamily: 'inherit',
-            }}
+            style={{ width: '100%', padding: '14px 16px', fontSize: 15, borderRadius: 12, border: `1px solid ${C.border}`, background: C.bg, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
           />
-          <button
-            onClick={() => pw === ADMIN_PASSWORD && setAuthed(true)}
-            style={{
-              width: '100%',
-              marginTop: 12,
-              padding: '14px 0',
-              fontSize: 15,
-              fontWeight: 700,
-              borderRadius: 12,
-              border: 'none',
-              background: C.primary,
-              color: '#fff',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              letterSpacing: -0.3,
-            }}
-          >
+          <button onClick={() => pw === ADMIN_PASSWORD && setAuthed(true)}
+            style={{ width: '100%', marginTop: 12, padding: '14px 0', fontSize: 15, fontWeight: 700, borderRadius: 12, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
             로그인
           </button>
         </div>
       </div>
     );
+  }
+
+  /* ─── 데이터 로딩 ─────────────────────────── */
+  async function loadProducts() {
+    setProductsLoading(true);
+    try {
+      const res = await fetch('/api/products?active=all');
+      const json = await res.json();
+      setProducts(json.data || []);
+    } catch {
+      // 테이블 없으면 초기화 시도
+      await fetch('/api/db/init', { method: 'POST' });
+      setProducts([]);
+    }
+    setProductsLoading(false);
+  }
+
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => { loadProducts(); }, []);
+
+  /* ─── 상품 CRUD ─────────────────────────── */
+  async function saveProduct() {
+    if (!form.title.trim() || !form.affiliate_url.trim()) {
+      alert('제목과 링크는 필수예요!');
+      return;
+    }
+    setSaving(true);
+    try {
+      const res = await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          sale_price: Number(form.sale_price) || 0,
+          original_price: Number(form.original_price) || 0,
+          discount_rate: Number(form.discount_rate) || 0,
+        }),
+      });
+      const json = await res.json();
+      if (json.data) {
+        setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '' });
+        setTab('products');
+        loadProducts();
+      }
+    } catch (e) {
+      alert('등록 실패: ' + e);
+    }
+    setSaving(false);
+  }
+
+  async function updateProduct(p: Product) {
+    try {
+      await fetch(`/api/products/${p.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p),
+      });
+      loadProducts();
+      setEditProduct(null);
+    } catch (e) {
+      alert('수정 실패: ' + e);
+    }
+  }
+
+  async function deleteProduct(id: number) {
+    if (!confirm('정말 삭제할까요?')) return;
+    try {
+      await fetch(`/api/products/${id}`, { method: 'DELETE' });
+      loadProducts();
+    } catch (e) {
+      alert('삭제 실패: ' + e);
+    }
+  }
+
+  async function toggleActive(p: Product) {
+    await fetch(`/api/products/${p.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !p.is_active }),
+    });
+    loadProducts();
+  }
+
+  async function moveOrder(p: Product, direction: 'up' | 'down') {
+    const sameSection = filteredProducts;
+    const idx = sameSection.findIndex(x => x.id === p.id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sameSection.length) return;
+
+    const orders = sameSection.map((item, i) => {
+      if (i === idx) return { id: item.id, sort_order: swapIdx };
+      if (i === swapIdx) return { id: item.id, sort_order: idx };
+      return { id: item.id, sort_order: i };
+    });
+
+    await fetch('/api/products/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders }),
+    });
+    loadProducts();
+  }
+
+  // 골드박스에서 바로 등록
+  async function addFromGoldbox(item: GoldboxItem) {
+    setSaving(true);
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.productName,
+          image_url: item.productImage,
+          affiliate_url: item.productUrl,
+          platform: 'coupang',
+          category: 'all',
+          section: 'ranking',
+          sale_price: item.productPrice,
+          original_price: item.originalPrice,
+          discount_rate: item.discountRate,
+        }),
+      });
+      loadProducts();
+      alert(`"${item.productName.slice(0, 20)}..." 랭킹에 등록했어요!`);
+    } catch (e) {
+      alert('등록 실패: ' + e);
+    }
+    setSaving(false);
+  }
+
+  async function addFromSearch(item: GoldboxItem) {
+    setSaving(true);
+    try {
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: item.productName,
+          image_url: item.productImage,
+          affiliate_url: item.productUrl,
+          platform: 'coupang',
+          category: 'all',
+          section: 'recommend',
+          sale_price: item.productPrice,
+          original_price: item.originalPrice,
+          discount_rate: item.discountRate,
+        }),
+      });
+      loadProducts();
+      alert(`"${item.productName.slice(0, 20)}..." 추천에 등록했어요!`);
+    } catch (e) {
+      alert('등록 실패: ' + e);
+    }
+    setSaving(false);
   }
 
   /* ─── API 호출 ─────────────────────────── */
@@ -156,308 +322,68 @@ export default function AdminPage() {
     setSearchLoading(false);
   }
 
-  async function createDeeplink() {
-    if (!urls.trim()) return;
-    setDeeplinkLoading(true);
-    try {
-      const urlList = urls.split('\n').map(u => u.trim()).filter(Boolean);
-      if (linkPlatform === 'coupang') {
-        const res = await fetch('/api/coupang/deeplink', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls: urlList }),
-        });
-        const json = await res.json();
-        setDeeplinkResult(json.data || []);
-      } else {
-        // 쿠팡 외 플랫폼은 URL을 그대로 보여줌 (자체 제휴 링크)
-        setDeeplinkResult(urlList.map(u => ({ originalUrl: u, shortenUrl: u })));
-      }
-    } catch (e) {
-      alert('링크 변환 실패: ' + e);
-    }
-    setDeeplinkLoading(false);
-  }
+  /* ─── 필터 ─────────────────────────── */
+  const filteredProducts = products
+    .filter(p => filterSection === 'all' || p.section === filterSection)
+    .filter(p => filterPlatform === 'all' || p.platform === filterPlatform)
+    .sort((a, b) => a.sort_order - b.sort_order);
 
-  async function copyText(text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
-    } catch {
-      // fallback
-    }
-  }
-
-  /* ─── 플랫폼 뱃지 ─────────────────────────── */
-  function PlatformBadge({ platform, size = 'sm' }: { platform: keyof typeof platformInfo; size?: 'sm' | 'md' }) {
-    const p = platformInfo[platform];
-    const isMd = size === 'md';
+  /* ─── 헬퍼 ─────────────────────────── */
+  function PlatformBadge({ platform }: { platform: string }) {
+    const p = PLATFORMS.find(x => x.id === platform);
+    if (!p) return null;
     return (
-      <span style={{
-        display: 'inline-block',
-        fontSize: isMd ? 11 : 9,
-        fontWeight: 700,
-        color: '#fff',
-        background: p.color,
-        padding: isMd ? '3px 10px' : '2px 6px',
-        borderRadius: isMd ? 6 : 4,
-        letterSpacing: 0.5,
-      }}>
-        {p.tag}
+      <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', background: p.color, padding: '2px 6px', borderRadius: 4, letterSpacing: 0.3 }}>
+        {p.name}
       </span>
     );
   }
 
-  /* ─── 상품 카드 ─────────────────────────── */
-  function ItemCard({ item, index }: { item: ProductItem; index: number }) {
+  function SectionBadge({ section }: { section: string }) {
+    const s = SECTIONS.find(x => x.id === section);
+    const colors: Record<string, string> = { ranking: C.deal, recommend: C.primary, deal: C.green };
     return (
-      <div style={{
-        display: 'flex',
-        gap: 16,
-        padding: '18px 20px',
-        borderBottom: `1px solid ${C.border}`,
-        alignItems: 'center',
-      }}>
-        <span style={{
-          fontSize: 14,
-          fontWeight: 700,
-          color: index < 3 ? C.primary : C.muted,
-          width: 20,
-          textAlign: 'center',
-          flexShrink: 0,
-        }}>
-          {index + 1}
-        </span>
-        <img
-          src={item.productImage}
-          alt=""
-          style={{
-            width: 72,
-            height: 72,
-            borderRadius: 12,
-            objectFit: 'cover',
-            background: C.bg,
-            flexShrink: 0,
-          }}
-        />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <p style={{
-            fontSize: 14,
-            fontWeight: 600,
-            margin: 0,
-            lineHeight: 1.4,
-            overflow: 'hidden',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical' as const,
-            letterSpacing: -0.2,
-            color: C.text,
-          }}>
-            {item.productName}
-          </p>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 4 }}>
-            <span style={{ fontSize: 12, color: C.sub }}>{item.categoryName}</span>
-            {item.isRocket && (
-              <span style={{
-                fontSize: 10,
-                fontWeight: 600,
-                color: C.primary,
-                background: C.primaryLight,
-                padding: '1px 6px',
-                borderRadius: 4,
-              }}>
-                로켓
-              </span>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 6 }}>
-            {item.discountRate > 0 && (
-              <span style={{ fontSize: 14, fontWeight: 800, color: C.deal }}>
-                {item.discountRate}%
-              </span>
-            )}
-            <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-              {item.productPrice?.toLocaleString()}원
-            </span>
-            {item.originalPrice > item.productPrice && (
-              <span style={{ fontSize: 11, color: C.muted, textDecoration: 'line-through' }}>
-                {item.originalPrice?.toLocaleString()}원
-              </span>
-            )}
-          </div>
-        </div>
-        <a
-          href={item.productUrl}
-          target="_blank"
-          rel="noreferrer"
-          style={{
-            fontSize: 12,
-            fontWeight: 600,
-            color: C.primary,
-            textDecoration: 'none',
-            flexShrink: 0,
-            padding: '6px 12px',
-            borderRadius: 8,
-            background: C.primaryLight,
-          }}
-        >
-          보기
-        </a>
-      </div>
-    );
-  }
-
-  /* ─── 가이드 섹션 카드 ─────────────────────────── */
-  function GuideSection({ title, color, children }: { title: string; color: string; children: React.ReactNode }) {
-    return (
-      <div style={{
-        background: C.card,
-        borderRadius: 16,
-        margin: '0 16px 16px',
-        overflow: 'hidden',
-        border: `1px solid ${C.border}`,
-      }}>
-        <div style={{
-          padding: '16px 20px 12px',
-          borderBottom: `1px solid ${C.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 10,
-        }}>
-          <div style={{ width: 4, height: 18, borderRadius: 2, background: color }} />
-          <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: C.text, letterSpacing: -0.3 }}>{title}</h3>
-        </div>
-        <div style={{ padding: '16px 20px' }}>
-          {children}
-        </div>
-      </div>
-    );
-  }
-
-  function Step({ n, text }: { n: number; text: string }) {
-    return (
-      <div style={{ display: 'flex', gap: 10, marginBottom: 10, alignItems: 'flex-start' }}>
-        <span style={{
-          width: 22,
-          height: 22,
-          borderRadius: 7,
-          background: C.primaryLight,
-          color: C.primary,
-          fontSize: 12,
-          fontWeight: 700,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0,
-          marginTop: 1,
-        }}>
-          {n}
-        </span>
-        <p style={{ fontSize: 13, color: C.sub, margin: 0, lineHeight: 1.55 }}>{text}</p>
-      </div>
-    );
-  }
-
-  function StatusBadge({ status, text }: { status: 'active' | 'soon' | 'ready'; text: string }) {
-    const styles = {
-      active: { bg: 'rgba(0,196,113,0.08)', color: C.green },
-      ready: { bg: C.primaryLight, color: C.primary },
-      soon: { bg: 'rgba(255,107,53,0.08)', color: C.deal },
-    };
-    const s = styles[status];
-    return (
-      <span style={{
-        fontSize: 11,
-        fontWeight: 600,
-        color: s.color,
-        background: s.bg,
-        padding: '3px 8px',
-        borderRadius: 5,
-      }}>
-        {text}
+      <span style={{ fontSize: 9, fontWeight: 600, color: colors[section] || C.sub, background: `${colors[section] || C.sub}15`, padding: '2px 6px', borderRadius: 4 }}>
+        {s?.name || section}
       </span>
     );
   }
 
-  /* ─── 탭 구성 ─────────────────────────── */
+  /* ─── 탭 ─────────────────────────── */
   const tabs: { id: TabId; label: string; count?: number }[] = [
+    { id: 'products', label: '상품 관리', count: products.length },
+    { id: 'add', label: '+ 등록' },
+    { id: 'goldbox', label: '골드박스' },
+    { id: 'search', label: '검색' },
     { id: 'guide', label: '가이드' },
-    { id: 'goldbox', label: '골드박스', count: goldboxData.length },
-    { id: 'search', label: '검색', count: searchData.length },
-    { id: 'links', label: '링크 등록', count: deeplinkResult.length },
   ];
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: C.bg,
-      fontFamily: '-apple-system, BlinkMacSystemFont, "Pretendard Variable", system-ui, sans-serif',
-      paddingBottom: 40,
-    }}>
+    <div style={{ minHeight: '100vh', background: C.bg, fontFamily: '-apple-system, BlinkMacSystemFont, "Pretendard Variable", system-ui, sans-serif', paddingBottom: 40 }}>
       {/* 헤더 */}
-      <div style={{
-        background: C.card,
-        borderBottom: `1px solid ${C.border}`,
-        position: 'sticky',
-        top: 0,
-        zIndex: 100,
-      }}>
-        <div style={{
-          maxWidth: 640,
-          margin: '0 auto',
-          padding: '16px 24px',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-          <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0, letterSpacing: -0.5 }}>
+      <div style={{ background: C.card, borderBottom: `1px solid ${C.border}`, position: 'sticky', top: 0, zIndex: 100 }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', padding: '16px 24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
             다있어 <span style={{ color: C.primary }}>Admin</span>
           </h1>
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            {(['coupang', 'toss', 'kurly', 'temu'] as const).map(p => (
-              <PlatformBadge key={p} platform={p} />
+          <div style={{ display: 'flex', gap: 6 }}>
+            {PLATFORMS.map(p => (
+              <span key={p.id} style={{ fontSize: 9, fontWeight: 700, color: '#fff', background: p.color, padding: '2px 6px', borderRadius: 4 }}>{p.name}</span>
             ))}
           </div>
         </div>
-
-        {/* 탭 */}
-        <div style={{
-          maxWidth: 640,
-          margin: '0 auto',
-          display: 'flex',
-          padding: '0 24px',
-        }}>
+        <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', padding: '0 16px', overflowX: 'auto' }}>
           {tabs.map(t => (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
+            <button key={t.id} onClick={() => setTab(t.id)}
               style={{
-                flex: 1,
-                padding: '12px 0',
-                border: 'none',
-                background: 'none',
-                fontSize: 13,
-                fontWeight: tab === t.id ? 700 : 500,
-                color: tab === t.id ? C.primary : C.muted,
+                padding: '12px 16px', border: 'none', background: 'none', fontSize: 13, whiteSpace: 'nowrap',
+                fontWeight: tab === t.id ? 700 : 500, color: tab === t.id ? C.primary : C.muted,
                 borderBottom: tab === t.id ? `2px solid ${C.primary}` : '2px solid transparent',
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                transition: 'all 0.15s',
-              }}
-            >
+                cursor: 'pointer', fontFamily: 'inherit', display: 'flex', alignItems: 'center', gap: 4,
+              }}>
               {t.label}
               {(t.count ?? 0) > 0 && (
-                <span style={{
-                  fontSize: 10,
-                  fontWeight: 700,
-                  background: tab === t.id ? C.primary : C.border,
-                  color: tab === t.id ? '#fff' : C.sub,
-                  padding: '1px 6px',
-                  borderRadius: 10,
-                }}>
+                <span style={{ fontSize: 10, fontWeight: 700, background: tab === t.id ? C.primary : C.border, color: tab === t.id ? '#fff' : C.sub, padding: '1px 6px', borderRadius: 10 }}>
                   {t.count}
                 </span>
               )}
@@ -466,512 +392,110 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* 콘텐츠 */}
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
 
-        {/* ━━━ 가이드 탭 ━━━ */}
-        {tab === 'guide' && (
-          <div style={{ paddingTop: 20 }}>
-            {/* 개요 */}
-            <div style={{
-              margin: '0 16px 20px',
-              padding: '20px 24px',
-              background: `linear-gradient(135deg, ${C.primary}, #1B6CF2)`,
-              borderRadius: 16,
-              color: '#fff',
-            }}>
-              <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0, letterSpacing: -0.3 }}>
-                다있어 상품 관리
-              </h2>
-              <p style={{ fontSize: 13, margin: '8px 0 0', opacity: 0.85, lineHeight: 1.55 }}>
-                4개 플랫폼의 제휴 상품을 한 곳에서 관리해요.<br />
-                쿠팡은 API로 자동 변환, 나머지는 내 제휴 링크를 바로 등록해요.
-              </p>
-              <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                {(['coupang', 'toss', 'kurly', 'temu'] as const).map(p => (
-                  <span key={p} style={{
-                    fontSize: 11,
-                    fontWeight: 600,
-                    background: 'rgba(255,255,255,0.2)',
-                    padding: '4px 10px',
-                    borderRadius: 6,
-                  }}>
-                    {platformInfo[p].name}
-                  </span>
-                ))}
-              </div>
-            </div>
-
-            {/* 플랫폼별 현황 */}
-            <div style={{
-              background: C.card,
-              borderRadius: 16,
-              margin: '0 16px 16px',
-              overflow: 'hidden',
-              border: `1px solid ${C.border}`,
-            }}>
-              <div style={{ padding: '16px 20px 12px' }}>
-                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: C.text, letterSpacing: -0.3 }}>
-                  플랫폼 현황
-                </h3>
-              </div>
-              {([
-                { p: 'coupang' as const, desc: '파트너스 API 연동', status: 'active' as const, statusText: 'API 연동 완료' },
-                { p: 'toss' as const, desc: '토스쇼핑 제휴 링크', status: 'ready' as const, statusText: '링크 등록 가능' },
-                { p: 'kurly' as const, desc: '컬리 제휴 커머스', status: 'ready' as const, statusText: '링크 등록 가능' },
-                { p: 'temu' as const, desc: '테무 제휴 프로그램', status: 'soon' as const, statusText: '준비 중' },
-              ]).map(({ p, desc, status, statusText }) => (
-                <div key={p} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 14,
-                  padding: '14px 20px',
-                  borderTop: `1px solid ${C.border}`,
-                }}>
-                  <div style={{
-                    width: 36,
-                    height: 36,
-                    borderRadius: 10,
-                    background: platformInfo[p].color,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    color: '#fff',
-                    fontSize: 11,
-                    fontWeight: 800,
-                    flexShrink: 0,
-                    letterSpacing: -0.5,
-                  }}>
-                    {platformInfo[p].name.slice(0, 1)}
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <p style={{ fontSize: 14, fontWeight: 600, margin: 0, color: C.text }}>{platformInfo[p].name}</p>
-                    <p style={{ fontSize: 12, color: C.sub, margin: '2px 0 0' }}>{desc}</p>
-                  </div>
-                  <StatusBadge status={status} text={statusText} />
-                </div>
-              ))}
-            </div>
-
-            {/* 쿠팡 사용법 */}
-            <GuideSection title="쿠팡 파트너스" color={C.coupang}>
-              <div style={{ marginBottom: 14 }}>
-                <PlatformBadge platform="coupang" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>유일하게 API 지원 — URL만 넣으면 내 제휴 링크 자동 생성</span>
-              </div>
-              <div style={{
-                background: C.bg,
-                borderRadius: 10,
-                padding: '14px 16px',
-                marginBottom: 14,
-              }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>골드박스 (자동 수집)</p>
-                <Step n={1} text="골드박스 탭에서 '쿠팡 인기 상품 불러오기' 클릭" />
-                <Step n={2} text="쿠팡의 실시간 인기 할인 상품 + 내 제휴 링크가 자동 생성돼요" />
-                <Step n={3} text="앱의 '다들 이거 사고 있어요'에 자동 연동" />
-              </div>
-              <div style={{
-                background: C.bg,
-                borderRadius: 10,
-                padding: '14px 16px',
-                marginBottom: 14,
-              }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>검색 (키워드로 찾기)</p>
-                <Step n={1} text="검색 탭에서 키워드 입력 (예: '에어팟', '물티슈')" />
-                <Step n={2} text="결과 상품에 내 제휴 링크가 자동으로 붙어 나와요" />
-              </div>
-              <div style={{
-                background: C.bg,
-                borderRadius: 10,
-                padding: '14px 16px',
-              }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>딥링크 변환 (일반 URL → 내 제휴 링크)</p>
-                <Step n={1} text="쿠팡에서 마음에 드는 상품 URL을 복사해요" />
-                <Step n={2} text="링크 탭 → 쿠팡 선택 → URL 붙여넣기" />
-                <Step n={3} text="내 파트너스 계정의 제휴 링크가 자동 생성돼요" />
-                <p style={{ fontSize: 11, color: C.deal, margin: '8px 0 0', fontWeight: 500 }}>
-                  * 내 Access Key로 변환하기 때문에 수수료가 내 계정으로 들어와요
-                </p>
-              </div>
-            </GuideSection>
-
-            {/* 토스쇼핑 사용법 */}
-            <GuideSection title="토스쇼핑" color={C.toss}>
-              <div style={{ marginBottom: 14 }}>
-                <PlatformBadge platform="toss" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>이미 내 제휴 링크 — 그대로 등록</span>
-              </div>
-              <div style={{
-                background: C.bg,
-                borderRadius: 10,
-                padding: '14px 16px',
-              }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>사용 방법</p>
-                <Step n={1} text="토스쇼핑 제휴 페이지에서 상품 링크를 복사해요 (이미 내 제휴 코드 포함)" />
-                <Step n={2} text="링크 탭 → 토스쇼핑 선택 → 그대로 붙여넣기" />
-                <Step n={3} text="변환 없이 바로 등록! 토스 앱에서 바로 열려요" />
-                <p style={{ fontSize: 11, color: C.green, margin: '8px 0 0', fontWeight: 500, lineHeight: 1.5 }}>
-                  * 토스쇼핑 링크는 이미 내 제휴 코드가 포함되어 있어서 변환이 필요 없어요<br />
-                  * 토스 앱 안에서 열리기 때문에 전환율이 가장 높아요
-                </p>
-              </div>
-            </GuideSection>
-
-            {/* 컬리 사용법 */}
-            <GuideSection title="컬리" color={C.kurly}>
-              <div style={{ marginBottom: 14 }}>
-                <PlatformBadge platform="kurly" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>이미 내 제휴 링크 — 그대로 등록</span>
-              </div>
-              <div style={{
-                background: C.bg,
-                borderRadius: 10,
-                padding: '14px 16px',
-              }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>사용 방법</p>
-                <Step n={1} text="컬리 제휴 페이지(partners.kurly.com)에서 제휴 링크 복사 (이미 내 코드 포함)" />
-                <Step n={2} text="링크 탭 → 컬리 선택 → 그대로 붙여넣기" />
-                <Step n={3} text="변환 없이 바로 등록! 컬리 앱/웹으로 연결돼요" />
-                <p style={{ fontSize: 11, color: C.green, margin: '8px 0 0', fontWeight: 500, lineHeight: 1.5 }}>
-                  * 컬리 제휴 링크는 이미 내 코드가 포함되어 있어서 변환이 필요 없어요<br />
-                  * 식품/신선식품에 강해서 생활용품 큐레이션에 딱이에요
-                </p>
-              </div>
-            </GuideSection>
-
-            {/* 테무 사용법 */}
-            <GuideSection title="테무" color={C.temu}>
-              <div style={{ marginBottom: 14 }}>
-                <PlatformBadge platform="temu" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>이미 내 제휴 링크 — 그대로 등록</span>
-              </div>
-              <div style={{
-                background: C.bg,
-                borderRadius: 10,
-                padding: '14px 16px',
-              }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>사용 방법</p>
-                <Step n={1} text="테무 제휴 프로그램(affiliate.temu.com) 가입 후 승인받기" />
-                <Step n={2} text="테무에서 상품 제휴 링크 복사 (이미 내 코드 포함)" />
-                <Step n={3} text="링크 탭 → 테무 선택 → 그대로 붙여넣기" />
-                <p style={{ fontSize: 11, color: C.green, margin: '8px 0 0', fontWeight: 500, lineHeight: 1.5 }}>
-                  * 테무 제휴 링크도 이미 내 코드가 포함되어 있어서 변환 필요 없어요<br />
-                  * 수수료율이 5~20%로 가장 높아요
-                </p>
-              </div>
-            </GuideSection>
-
-            {/* 수익 구조 요약 */}
-            <div style={{
-              margin: '0 16px 20px',
-              padding: '20px 24px',
-              background: C.card,
-              borderRadius: 16,
-              border: `1px solid ${C.border}`,
-            }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, margin: '0 0 14px', color: C.text, letterSpacing: -0.3 }}>
-                수익 구조
-              </h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {([
-                  { name: '쿠팡', rate: '3~7%', color: C.coupang },
-                  { name: '토스쇼핑', rate: '1~5%', color: C.toss },
-                  { name: '컬리', rate: '1~7%', color: C.kurly },
-                  { name: '테무', rate: '5~20%', color: C.temu },
-                ]).map(({ name, rate, color }) => (
-                  <div key={name} style={{
-                    padding: '12px 14px',
-                    background: C.bg,
-                    borderRadius: 10,
-                    textAlign: 'center',
-                  }}>
-                    <p style={{ fontSize: 12, color: C.sub, margin: 0 }}>{name}</p>
-                    <p style={{ fontSize: 18, fontWeight: 800, color, margin: '4px 0 0', letterSpacing: -0.5 }}>
-                      {rate}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <p style={{ fontSize: 11, color: C.muted, margin: '12px 0 0', lineHeight: 1.5, textAlign: 'center' }}>
-                사용자가 제휴 링크를 통해 구매하면 수수료가 발생해요
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* ━━━ 골드박스 탭 ━━━ */}
-        {tab === 'goldbox' && (
+        {/* ━━━ 상품 관리 탭 ━━━ */}
+        {tab === 'products' && (
           <div>
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <PlatformBadge platform="coupang" size="md" />
-                <span style={{ fontSize: 13, color: C.sub }}>실시간 인기 할인 상품</span>
-              </div>
-              <button
-                onClick={fetchGoldbox}
-                disabled={goldboxLoading}
-                style={{
-                  width: '100%',
-                  padding: '14px 0',
-                  borderRadius: 12,
-                  border: 'none',
-                  background: goldboxLoading ? C.muted : C.coupang,
-                  color: '#fff',
-                  fontSize: 14,
-                  fontWeight: 700,
-                  cursor: goldboxLoading ? 'default' : 'pointer',
-                  fontFamily: 'inherit',
-                  letterSpacing: -0.3,
-                }}
-              >
-                {goldboxLoading ? '불러오는 중...' : '쿠팡 인기 상품 불러오기'}
+            {/* 필터 */}
+            <div style={{ padding: '16px 20px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <select value={filterSection} onChange={e => setFilterSection(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', background: C.card }}>
+                <option value="all">전체 섹션</option>
+                {SECTIONS.map(s => <option key={s.id} value={s.id}>{s.name} — {s.desc}</option>)}
+              </select>
+              <select value={filterPlatform} onChange={e => setFilterPlatform(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', background: C.card }}>
+                <option value="all">전체 플랫폼</option>
+                {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <button onClick={() => setTab('add')}
+                style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                + 상품 등록
               </button>
-              {goldboxData.length > 0 && (
-                <p style={{ fontSize: 12, color: C.sub, marginTop: 10, textAlign: 'center' }}>
-                  {goldboxData.length}개 상품 · 앱 '다들 이거 사고 있어요'에 자동 반영
-                </p>
-              )}
             </div>
-            {goldboxData.length > 0 && (
-              <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden' }}>
-                {goldboxData.map((item, i) => (
-                  <ItemCard key={item.productId || i} item={item} index={i} />
-                ))}
-              </div>
-            )}
-            {goldboxData.length === 0 && !goldboxLoading && (
-              <p style={{ textAlign: 'center', color: C.muted, fontSize: 13, padding: '40px 0' }}>
-                버튼을 눌러 쿠팡 인기 상품을 불러와 보세요
-              </p>
-            )}
-          </div>
-        )}
 
-        {/* ━━━ 검색 탭 ━━━ */}
-        {tab === 'search' && (
-          <div>
-            <div style={{ padding: '20px 24px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <PlatformBadge platform="coupang" size="md" />
-                <span style={{ fontSize: 13, color: C.sub }}>쿠팡 상품 검색</span>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input
-                  value={keyword}
-                  onChange={e => setKeyword(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && fetchSearch()}
-                  placeholder="검색어를 입력하세요 (예: 에어팟, 물티슈)"
-                  style={{
-                    flex: 1,
-                    padding: '14px 16px',
-                    fontSize: 14,
-                    borderRadius: 12,
-                    border: `1px solid ${C.border}`,
-                    background: C.card,
-                    outline: 'none',
-                    fontFamily: 'inherit',
-                  }}
-                />
-                <button
-                  onClick={fetchSearch}
-                  disabled={searchLoading}
-                  style={{
-                    padding: '14px 24px',
-                    borderRadius: 12,
-                    border: 'none',
-                    background: C.primary,
-                    color: '#fff',
-                    fontSize: 14,
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                    flexShrink: 0,
-                  }}
-                >
-                  {searchLoading ? '...' : '검색'}
-                </button>
-              </div>
-            </div>
-            {searchData.length > 0 && (
-              <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden' }}>
-                {searchData.map((item, i) => (
-                  <ItemCard key={item.productId || i} item={item} index={i} />
-                ))}
-              </div>
-            )}
-            {searchData.length === 0 && keyword && !searchLoading && (
-              <p style={{ textAlign: 'center', color: C.muted, fontSize: 14, padding: 40 }}>
-                검색 결과가 없어요
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* ━━━ 링크 변환 탭 ━━━ */}
-        {tab === 'links' && (
-          <div style={{ padding: '20px 24px' }}>
-            {/* 플랫폼 선택 */}
-            <p style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>
-              플랫폼 선택
-            </p>
-            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
-              {(['coupang', 'toss', 'kurly', 'temu'] as const).map(p => {
-                const active = linkPlatform === p;
-                const info = platformInfo[p];
+            {/* 섹션별 카운트 */}
+            <div style={{ padding: '0 20px 12px', display: 'flex', gap: 12 }}>
+              {SECTIONS.map(s => {
+                const count = products.filter(p => p.section === s.id).length;
                 return (
-                  <button
-                    key={p}
-                    onClick={() => setLinkPlatform(p)}
-                    style={{
-                      flex: 1,
-                      padding: '12px 0',
-                      borderRadius: 12,
-                      border: active ? `2px solid ${info.color}` : `1px solid ${C.border}`,
-                      background: active ? `${info.color}08` : C.card,
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      gap: 4,
-                    }}
-                  >
-                    <span style={{
-                      width: 28,
-                      height: 28,
-                      borderRadius: 8,
-                      background: info.color,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      color: '#fff',
-                      fontSize: 10,
-                      fontWeight: 800,
-                    }}>
-                      {info.name.slice(0, 1)}
-                    </span>
-                    <span style={{
-                      fontSize: 11,
-                      fontWeight: active ? 700 : 500,
-                      color: active ? info.color : C.sub,
-                    }}>
-                      {info.name}
-                    </span>
-                  </button>
+                  <div key={s.id} style={{ padding: '10px 16px', background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, flex: 1, textAlign: 'center' }}>
+                    <p style={{ fontSize: 18, fontWeight: 800, margin: 0, color: s.id === 'ranking' ? C.deal : s.id === 'deal' ? C.green : C.primary }}>{count}</p>
+                    <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>{s.name}</p>
+                  </div>
                 );
               })}
             </div>
 
-            {/* URL 입력 */}
-            <p style={{ fontSize: 13, color: C.sub, marginBottom: 10 }}>
-              {linkPlatform === 'coupang'
-                ? '쿠팡 일반 URL을 넣으면 내 제휴 링크로 자동 변환돼요 (한 줄에 하나)'
-                : `${platformInfo[linkPlatform].name}에서 복사한 내 제휴 링크를 그대로 넣으세요 (한 줄에 하나)`
-              }
-            </p>
-            <textarea
-              value={urls}
-              onChange={e => setUrls(e.target.value)}
-              placeholder={
-                linkPlatform === 'coupang'
-                  ? 'https://www.coupang.com/vp/products/...\nhttps://www.coupang.com/vp/products/...'
-                  : linkPlatform === 'toss'
-                  ? 'https://tossshopping.com/products/...'
-                  : linkPlatform === 'kurly'
-                  ? 'https://www.kurly.com/goods/...'
-                  : 'https://www.temu.com/...'
-              }
-              rows={4}
-              style={{
-                width: '100%',
-                padding: '14px 16px',
-                fontSize: 13,
-                borderRadius: 12,
-                border: `1px solid ${C.border}`,
-                background: C.card,
-                resize: 'vertical',
-                outline: 'none',
-                fontFamily: 'inherit',
-                lineHeight: 1.6,
-                boxSizing: 'border-box',
-              }}
-            />
-            <button
-              onClick={createDeeplink}
-              disabled={deeplinkLoading}
-              style={{
-                width: '100%',
-                marginTop: 12,
-                padding: '14px 0',
-                borderRadius: 12,
-                border: 'none',
-                background: platformInfo[linkPlatform].color,
-                color: '#fff',
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              {deeplinkLoading
-                ? '처리 중...'
-                : linkPlatform === 'coupang'
-                ? '내 제휴 링크로 변환'
-                : `내 ${platformInfo[linkPlatform].name} 링크 등록`
-              }
-            </button>
-
-            {linkPlatform === 'coupang' ? (
-              <p style={{ fontSize: 11, color: C.sub, marginTop: 8, lineHeight: 1.5 }}>
-                * 쿠팡만 API로 자동 변환이 돼요 (내 파트너스 Access Key 사용)<br />
-                * 위 골드박스/검색 탭에서도 자동으로 내 제휴 링크가 생성돼요
-              </p>
+            {/* 상품 리스트 */}
+            {productsLoading ? (
+              <p style={{ textAlign: 'center', color: C.muted, padding: 40 }}>불러오는 중...</p>
+            ) : filteredProducts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <p style={{ fontSize: 40, margin: 0 }}>📦</p>
+                <p style={{ fontSize: 15, fontWeight: 600, color: C.text, marginTop: 12 }}>등록된 상품이 없어요</p>
+                <p style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>상품을 등록하면 앱과 웹에 바로 반영돼요</p>
+                <button onClick={() => setTab('add')}
+                  style={{ marginTop: 16, padding: '12px 24px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  첫 상품 등록하기
+                </button>
+              </div>
             ) : (
-              <p style={{ fontSize: 11, color: C.sub, marginTop: 8, lineHeight: 1.5 }}>
-                * {platformInfo[linkPlatform].name} 링크는 이미 내 제휴 코드가 포함되어 있어요<br />
-                * 변환 없이 그대로 등록하면 돼요 — 추가 변환하면 추적이 깨질 수 있어요
-              </p>
-            )}
-
-            {deeplinkResult.length > 0 && (
-              <div style={{ marginTop: 20 }}>
-                <p style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>
-                  {linkPlatform === 'coupang' ? '내 제휴 링크로 변환 완료' : '등록된 내 제휴 링크'}
-                </p>
-                {deeplinkResult.map((item, i) => (
-                  <div key={i} style={{
-                    padding: '14px 16px',
-                    background: C.card,
-                    borderRadius: 12,
-                    marginBottom: 8,
-                    border: `1px solid ${C.border}`,
+              <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                {filteredProducts.map((p, i) => (
+                  <div key={p.id} style={{
+                    display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
+                    opacity: p.is_active ? 1 : 0.4,
                   }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                      <PlatformBadge platform={linkPlatform} />
-                      <p style={{ fontSize: 11, color: C.muted, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
-                        {item.originalUrl}
-                      </p>
+                    {/* 순서 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                      <button onClick={() => moveOrder(p, 'up')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
+                      <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <p style={{ fontSize: 14, fontWeight: 600, color: platformInfo[linkPlatform].color, margin: 0, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {item.shortenUrl}
-                      </p>
-                      <button
-                        onClick={() => copyText(item.shortenUrl)}
-                        style={{
-                          padding: '4px 12px',
-                          borderRadius: 6,
-                          border: 'none',
-                          background: `${platformInfo[linkPlatform].color}10`,
-                          color: platformInfo[linkPlatform].color,
-                          fontSize: 12,
-                          fontWeight: 600,
-                          cursor: 'pointer',
-                          flexShrink: 0,
-                          fontFamily: 'inherit',
-                        }}
-                      >
-                        복사
+
+                    {/* 이미지 */}
+                    {p.image_url ? (
+                      <img src={p.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 56, height: 56, borderRadius: 10, background: C.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
+                    )}
+
+                    {/* 정보 */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{p.title}</p>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                        <PlatformBadge platform={p.platform} />
+                        <SectionBadge section={p.section} />
+                        {p.category !== 'all' && (
+                          <span style={{ fontSize: 9, color: C.sub, background: C.bg, padding: '2px 6px', borderRadius: 4 }}>
+                            {CATEGORIES.find(c => c.id === p.category)?.name}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                        {p.discount_rate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{p.discount_rate}%</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{p.sale_price?.toLocaleString()}원</span>
+                        {p.original_price > p.sale_price && (
+                          <span style={{ fontSize: 10, color: C.muted, textDecoration: 'line-through' }}>{p.original_price?.toLocaleString()}원</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 액션 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                      <button onClick={() => setEditProduct({ ...p })}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+                        수정
+                      </button>
+                      <button onClick={() => toggleActive(p)}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: p.is_active ? C.primaryLight : `${C.deal}15`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: p.is_active ? C.primary : C.deal, fontWeight: 600 }}>
+                        {p.is_active ? 'ON' : 'OFF'}
+                      </button>
+                      <button onClick={() => deleteProduct(p.id)}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: `${C.red}10`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.red }}>
+                        삭제
                       </button>
                     </div>
                   </div>
@@ -980,7 +504,328 @@ export default function AdminPage() {
             )}
           </div>
         )}
+
+        {/* ━━━ 상품 등록 탭 ━━━ */}
+        {tab === 'add' && (
+          <div style={{ padding: '20px 20px' }}>
+            <h2 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 20px', color: C.text }}>새 상품 등록</h2>
+
+            {/* 플랫폼 */}
+            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 8 }}>플랫폼</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              {PLATFORMS.map(p => (
+                <button key={p.id} onClick={() => setForm({ ...form, platform: p.id })}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10,
+                    border: form.platform === p.id ? `2px solid ${p.color}` : `1px solid ${C.border}`,
+                    background: form.platform === p.id ? `${p.color}08` : C.card,
+                    cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: form.platform === p.id ? 700 : 500,
+                    color: form.platform === p.id ? p.color : C.sub,
+                  }}>
+                  {p.name}
+                </button>
+              ))}
+            </div>
+
+            {/* 섹션 */}
+            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 8 }}>배치 섹션</label>
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              {SECTIONS.map(s => (
+                <button key={s.id} onClick={() => setForm({ ...form, section: s.id })}
+                  style={{
+                    flex: 1, padding: '10px 0', borderRadius: 10, textAlign: 'center',
+                    border: form.section === s.id ? `2px solid ${C.primary}` : `1px solid ${C.border}`,
+                    background: form.section === s.id ? C.primaryLight : C.card,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                  }}>
+                  <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: form.section === s.id ? C.primary : C.text }}>{s.name}</p>
+                  <p style={{ fontSize: 10, color: C.sub, margin: '2px 0 0' }}>{s.desc}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* 카테고리 */}
+            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 8 }}>카테고리</label>
+            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 20 }}>
+              {CATEGORIES.map(c => (
+                <button key={c.id} onClick={() => setForm({ ...form, category: c.id })}
+                  style={{
+                    padding: '6px 14px', borderRadius: 20,
+                    border: form.category === c.id ? `1px solid ${C.primary}` : `1px solid ${C.border}`,
+                    background: form.category === c.id ? C.primary : C.card,
+                    color: form.category === c.id ? '#fff' : C.sub,
+                    cursor: 'pointer', fontFamily: 'inherit', fontSize: 12, fontWeight: 500,
+                  }}>
+                  {c.name}
+                </button>
+              ))}
+            </div>
+
+            {/* 제휴 링크 */}
+            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>제휴 링크 *</label>
+            <input value={form.affiliate_url} onChange={e => setForm({ ...form, affiliate_url: e.target.value })}
+              placeholder={form.platform === 'coupang' ? 'https://link.coupang.com/...' : form.platform === 'toss' ? 'https://tossshopping.com/...' : 'https://...'}
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 14 }}
+            />
+
+            {/* 상품명 */}
+            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>상품명 *</label>
+            <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })}
+              placeholder="예: 비비고 왕교자 350g x 4봉"
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 14 }}
+            />
+
+            {/* 이미지 URL */}
+            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>이미지 URL</label>
+            <input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })}
+              placeholder="https://... (없으면 비워두세요)"
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 14 }}
+            />
+
+            {/* 가격 */}
+            <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>판매가</label>
+                <input type="number" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: e.target.value })}
+                  placeholder="11900"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>원가</label>
+                <input type="number" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })}
+                  placeholder="16800"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+              <div style={{ width: 80 }}>
+                <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>할인%</label>
+                <input type="number" value={form.discount_rate} onChange={e => setForm({ ...form, discount_rate: e.target.value })}
+                  placeholder="29"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                />
+              </div>
+            </div>
+
+            <button onClick={saveProduct} disabled={saving}
+              style={{ width: '100%', padding: '16px 0', borderRadius: 12, border: 'none', background: saving ? C.muted : C.primary, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 }}>
+              {saving ? '등록 중...' : '상품 등록하기'}
+            </button>
+
+            <p style={{ fontSize: 11, color: C.sub, marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
+              등록하면 앱과 웹의 해당 섹션에 바로 반영돼요
+            </p>
+          </div>
+        )}
+
+        {/* ━━━ 골드박스 탭 ━━━ */}
+        {tab === 'goldbox' && (
+          <div>
+            <div style={{ padding: '20px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <PlatformBadge platform="coupang" />
+                <span style={{ fontSize: 13, color: C.sub }}>쿠팡 실시간 인기 상품 → 바로 등록</span>
+              </div>
+              <button onClick={fetchGoldbox} disabled={goldboxLoading}
+                style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', background: goldboxLoading ? C.muted : C.coupang, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {goldboxLoading ? '불러오는 중...' : '쿠팡 인기 상품 불러오기'}
+              </button>
+            </div>
+            {goldboxData.length > 0 && (
+              <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                {goldboxData.map((item, i) => (
+                  <div key={item.productId || i} style={{ display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
+                    <span style={{ fontSize: 14, fontWeight: 700, color: i < 3 ? C.primary : C.muted, width: 20, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                    <img src={item.productImage} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{item.productName}</p>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                        {item.discountRate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                      </div>
+                    </div>
+                    <button onClick={() => addFromGoldbox(item)} disabled={saving}
+                      style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                      랭킹 등록
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ━━━ 검색 탭 ━━━ */}
+        {tab === 'search' && (
+          <div>
+            <div style={{ padding: '20px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                <PlatformBadge platform="coupang" />
+                <span style={{ fontSize: 13, color: C.sub }}>쿠팡 검색 → 바로 등록</span>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchSearch()}
+                  placeholder="검색어 (예: 에어팟, 물티슈)"
+                  style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', fontFamily: 'inherit' }}
+                />
+                <button onClick={fetchSearch} disabled={searchLoading}
+                  style={{ padding: '12px 20px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {searchLoading ? '...' : '검색'}
+                </button>
+              </div>
+            </div>
+            {searchData.length > 0 && (
+              <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                {searchData.map((item, i) => (
+                  <div key={item.productId || i} style={{ display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
+                    <img src={item.productImage} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{item.productName}</p>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                        {item.discountRate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                      </div>
+                    </div>
+                    <button onClick={() => addFromSearch(item)} disabled={saving}
+                      style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                      추천 등록
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ━━━ 가이드 탭 ━━━ */}
+        {tab === 'guide' && (
+          <div style={{ padding: '20px 16px' }}>
+            <div style={{ padding: '20px 24px', background: `linear-gradient(135deg, ${C.primary}, #1B6CF2)`, borderRadius: 16, color: '#fff', marginBottom: 16 }}>
+              <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>상품 등록 → 앱/웹 반영</h2>
+              <p style={{ fontSize: 13, margin: '8px 0 0', opacity: 0.85, lineHeight: 1.55 }}>
+                어드민에서 상품을 등록하면 앱과 웹에 바로 반영돼요.<br />
+                섹션별로 배치하고, 순서도 자유롭게 변경할 수 있어요.
+              </p>
+            </div>
+
+            {[
+              { title: '섹션 설명', items: [
+                { label: '랭킹', desc: '앱 홈 "다들 이거 사고 있어요" 캐러셀 + 웹 상단', color: C.deal },
+                { label: '추천', desc: '앱 홈 하단 리스트 + 웹 메인 그리드', color: C.primary },
+                { label: '득템', desc: '앱 "득템" 탭 + 웹 할인 페이지', color: C.green },
+              ]},
+              { title: '플랫폼별 링크', items: [
+                { label: '쿠팡', desc: '골드박스/검색에서 바로 등록 또는 수동 입력. API가 내 제휴 링크 자동 생성', color: C.coupang },
+                { label: '토스쇼핑', desc: '제휴 사이트에서 복사한 내 링크를 그대로 등록', color: C.toss },
+                { label: '컬리', desc: '컬리 제휴 페이지에서 복사한 내 링크를 그대로 등록', color: C.kurly },
+                { label: '테무', desc: '테무 제휴 프로그램에서 복사한 내 링크를 그대로 등록', color: C.temu },
+              ]},
+              { title: '사용 팁', items: [
+                { label: '순서 변경', desc: '상품 관리에서 ▲▼ 버튼으로 순서를 바꿀 수 있어요', color: C.sub },
+                { label: 'ON/OFF', desc: '상품을 숨기거나 보이게 할 수 있어요 (삭제하지 않고)', color: C.sub },
+                { label: '자동 수집', desc: '골드박스 탭에서 쿠팡 인기 상품을 클릭 한번으로 등록', color: C.sub },
+              ]},
+            ].map(group => (
+              <div key={group.title} style={{ background: C.card, borderRadius: 16, marginBottom: 12, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
+                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: C.text }}>{group.title}</h3>
+                </div>
+                {group.items.map(item => (
+                  <div key={item.label} style={{ padding: '12px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                    <div style={{ width: 4, height: 16, borderRadius: 2, background: item.color, flexShrink: 0, marginTop: 2 }} />
+                    <div>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: C.text }}>{item.label}</p>
+                      <p style={{ fontSize: 12, color: C.sub, margin: '2px 0 0', lineHeight: 1.5 }}>{item.desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      {/* ━━━ 수정 모달 ━━━ */}
+      {editProduct && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setEditProduct(null)}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 20px' }}>상품 수정</h3>
+
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>상품명</label>
+            <input value={editProduct.title} onChange={e => setEditProduct({ ...editProduct, title: e.target.value })}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 12, marginTop: 4 }}
+            />
+
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>제휴 링크</label>
+            <input value={editProduct.affiliate_url} onChange={e => setEditProduct({ ...editProduct, affiliate_url: e.target.value })}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 12, marginTop: 4 }}
+            />
+
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>이미지 URL</label>
+            <input value={editProduct.image_url || ''} onChange={e => setEditProduct({ ...editProduct, image_url: e.target.value })}
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 12, marginTop: 4 }}
+            />
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>섹션</label>
+                <select value={editProduct.section} onChange={e => setEditProduct({ ...editProduct, section: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', marginTop: 4 }}>
+                  {SECTIONS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>카테고리</label>
+                <select value={editProduct.category} onChange={e => setEditProduct({ ...editProduct, category: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', marginTop: 4 }}>
+                  {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>플랫폼</label>
+                <select value={editProduct.platform} onChange={e => setEditProduct({ ...editProduct, platform: e.target.value })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', marginTop: 4 }}>
+                  {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>판매가</label>
+                <input type="number" value={editProduct.sale_price} onChange={e => setEditProduct({ ...editProduct, sale_price: Number(e.target.value) })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4 }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>원가</label>
+                <input type="number" value={editProduct.original_price} onChange={e => setEditProduct({ ...editProduct, original_price: Number(e.target.value) })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4 }}
+                />
+              </div>
+              <div style={{ width: 80 }}>
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>할인%</label>
+                <input type="number" value={editProduct.discount_rate} onChange={e => setEditProduct({ ...editProduct, discount_rate: Number(e.target.value) })}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4 }}
+                />
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button onClick={() => setEditProduct(null)}
+                style={{ flex: 1, padding: '14px 0', borderRadius: 10, border: `1px solid ${C.border}`, background: C.card, fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+                취소
+              </button>
+              <button onClick={() => updateProduct(editProduct)}
+                style={{ flex: 2, padding: '14px 0', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                저장
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
