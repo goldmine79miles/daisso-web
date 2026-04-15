@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Navbar from '@/components/Navbar';
+import { StarIcon } from '@/components/Icons';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { getProductById, getProductsByCategory, products } from '@/data/products';
@@ -49,7 +50,7 @@ export default async function ProductPage({ params }: Props) {
         <div className="px-4 py-5">
           {category && (
             <Link href={`/category/${category.slug}`} className="text-sm font-semibold hover:underline" style={{ color: 'var(--accent)' }}>
-              {category.emoji} {category.name}
+              {category.name}
             </Link>
           )}
           <h1 className="mt-2 text-xl font-bold leading-snug">{product.title}</h1>
@@ -61,7 +62,7 @@ export default async function ProductPage({ params }: Props) {
           <p className="text-sm text-gray-400 line-through">{product.originalPrice.toLocaleString()}원</p>
 
           <div className="mt-3 flex items-center gap-2 text-sm text-gray-500">
-            <span>⭐ {product.rating}</span>
+            <span className="flex items-center gap-0.5"><StarIcon size={12} /> {product.rating}</span>
             <span>·</span>
             <span>리뷰 {product.reviewCount.toLocaleString()}개</span>
           </div>

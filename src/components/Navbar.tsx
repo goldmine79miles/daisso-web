@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SearchIcon, HeartIcon } from './Icons';
 
 export default function Navbar() {
   return (
@@ -7,9 +8,9 @@ export default function Navbar() {
         <Link href="/">
           <img src="/logo-light.png" alt="다있어" className="h-9 object-contain" />
         </Link>
-        <div className="flex items-center gap-3">
-          <Link href="/search" className="p-2 text-lg hover:bg-gray-100 rounded-lg">🔍</Link>
-          <Link href="/favorites" className="p-2 text-lg hover:bg-gray-100 rounded-lg">❤️</Link>
+        <div className="flex items-center gap-1">
+          <Link href="/search" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"><SearchIcon /></Link>
+          <Link href="/favorites" className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg"><HeartIcon /></Link>
         </div>
       </div>
     </nav>

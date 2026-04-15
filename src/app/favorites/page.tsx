@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
+import { HeartIcon } from '@/components/Icons';
 import ProductCard from '@/components/ProductCard';
 import { products } from '@/data/products';
 import type { Product } from '@/data/types';
@@ -30,7 +31,7 @@ export default function FavoritesPage() {
     <>
       <Navbar />
       <main className="max-w-5xl mx-auto px-4 pb-12">
-        <h1 className="mt-6 text-2xl font-bold">❤️ 찜 목록</h1>
+        <h1 className="mt-6 text-2xl font-bold">찜 목록</h1>
 
         {favProducts.length > 0 ? (
           <>
@@ -42,10 +43,10 @@ export default function FavoritesPage() {
             </div>
           </>
         ) : (
-          <div className="flex flex-col items-center py-20 text-gray-400">
-            <span className="text-5xl mb-3">💝</span>
-            <p className="text-base">아직 찜한 상품이 없어요</p>
-            <p className="text-sm mt-1">마음에 드는 꿀템을 찜해보세요!</p>
+          <div className="flex flex-col items-center py-20 text-gray-300">
+            <HeartIcon size={48} />
+            <p className="text-base mt-3">아직 찜한 상품이 없어요</p>
+            <p className="text-sm mt-1 text-gray-400">마음에 드는 꿀템을 찜해보세요!</p>
           </div>
         )}
       </main>

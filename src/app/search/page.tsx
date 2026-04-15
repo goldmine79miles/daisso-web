@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Navbar from '@/components/Navbar';
+import { SearchIcon, LightbulbIcon } from '@/components/Icons';
 import ProductCard from '@/components/ProductCard';
 import { searchProducts } from '@/data/products';
 
@@ -17,7 +18,7 @@ export default function SearchPage() {
       <main className="max-w-5xl mx-auto px-4 pb-12">
         {/* 검색바 */}
         <div className="mt-4 flex items-center gap-2 bg-gray-100 rounded-xl px-4 py-3">
-          <span className="text-gray-400">🔍</span>
+          <span className="text-gray-400"><SearchIcon size={18} /></span>
           <input
             type="text"
             value={query}
@@ -42,16 +43,16 @@ export default function SearchPage() {
               </div>
             </>
           ) : (
-            <div className="flex flex-col items-center py-20 text-gray-400">
-              <span className="text-5xl mb-3">🔍</span>
-              <p className="text-base">검색 결과가 없어요</p>
-              <p className="text-sm mt-1">다른 키워드로 검색해보세요</p>
+            <div className="flex flex-col items-center py-20 text-gray-300">
+              <SearchIcon size={48} />
+              <p className="text-base mt-3 text-gray-400">검색 결과가 없어요</p>
+              <p className="text-sm mt-1 text-gray-400">다른 키워드로 검색해보세요</p>
             </div>
           )
         ) : (
-          <div className="flex flex-col items-center py-16 text-gray-400">
-            <span className="text-5xl mb-3">💡</span>
-            <p className="text-base">어떤 꿀템을 찾으시나요?</p>
+          <div className="flex flex-col items-center py-16 text-gray-300">
+            <LightbulbIcon size={48} />
+            <p className="text-base mt-3 text-gray-400">어떤 꿀템을 찾으시나요?</p>
             <div className="flex flex-wrap gap-2 mt-5 justify-center">
               {SUGGESTIONS.map(kw => (
                 <button

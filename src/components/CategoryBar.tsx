@@ -19,7 +19,6 @@ export default function CategoryBar({ selected }: { selected: CategorySlug }) {
                 : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
             }`}
           >
-            <span>{cat.emoji}</span>
             <span>{cat.name}</span>
           </Link>
         );

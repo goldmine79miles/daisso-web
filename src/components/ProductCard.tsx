@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { StarIcon } from './Icons';
 import type { Product } from '@/data/types';
 
 export default function ProductCard({ product }: { product: Product }) {
@@ -28,7 +29,7 @@ export default function ProductCard({ product }: { product: Product }) {
         </div>
         <p className="text-xs text-gray-400 line-through">{product.originalPrice.toLocaleString()}원</p>
         <div className="mt-1.5 flex items-center gap-1 text-xs text-gray-400">
-          <span>⭐ {product.rating}</span>
+          <span className="flex items-center gap-0.5"><StarIcon size={12} /> {product.rating}</span>
           <span>· 리뷰 {product.reviewCount.toLocaleString()}</span>
         </div>
       </div>

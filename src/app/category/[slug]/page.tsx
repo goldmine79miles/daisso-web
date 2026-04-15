@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Navbar from '@/components/Navbar';
+import { PackageIcon } from '@/components/Icons';
 import CategoryBar from '@/components/CategoryBar';
 import ProductCard from '@/components/ProductCard';
 import Footer from '@/components/Footer';
@@ -38,7 +39,7 @@ export default async function CategoryPage({ params }: Props) {
         <CategoryBar selected={slug as CategorySlug} />
 
         <section className="px-4 mt-2">
-          <h1 className="text-2xl font-bold">{category.emoji} {category.name}</h1>
+          <h1 className="text-2xl font-bold">{category.name}</h1>
           <p className="text-sm text-gray-500 mt-1">총 {items.length}개의 꿀템</p>
         </section>
 
@@ -51,9 +52,9 @@ export default async function CategoryPage({ params }: Props) {
             </div>
           </section>
         ) : (
-          <div className="flex flex-col items-center py-20 text-gray-400">
-            <span className="text-5xl mb-3">📦</span>
-            <p>아직 등록된 상품이 없어요</p>
+          <div className="flex flex-col items-center py-20 text-gray-300">
+            <PackageIcon size={48} />
+            <p className="mt-3 text-gray-400">아직 등록된 상품이 없어요</p>
           </div>
         )}
       </main>
