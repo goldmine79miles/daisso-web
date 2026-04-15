@@ -75,12 +75,13 @@ interface GoldboxItem {
   discountRate: number;
 }
 
-type TabId = 'products' | 'add' | 'goldbox' | 'search' | 'guide';
+type TabId = 'products' | 'goldbox' | 'search' | 'guide';
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [pw, setPw] = useState('');
   const [tab, setTab] = useState<TabId>('products');
+  const [showAddForm, setShowAddForm] = useState(false);
 
   // 상품 관리
   const [products, setProducts] = useState<Product[]>([]);
@@ -194,7 +195,7 @@ export default function AdminPage() {
       const json = await res.json();
       if (json.data) {
         setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '' });
-        setTab('products');
+        setShowAddForm(false);
         loadProducts();
       }
     } catch (e) {
@@ -365,9 +366,8 @@ export default function AdminPage() {
   /* ─── 탭 ─────────────────────────── */
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'products', label: '상품 관리', count: products.length },
-    { id: 'add', label: '+ 등록' },
-    { id: 'goldbox', label: '골드박스' },
-    { id: 'search', label: '검색' },
+    { id: 'goldbox', label: '골드박스', count: goldboxData.length },
+    { id: 'search', label: '검색', count: searchData.length },
     { id: 'guide', label: '가이드' },
   ];
 
@@ -422,7 +422,7 @@ export default function AdminPage() {
                 <option value="all">전체 플랫폼</option>
                 {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <button onClick={() => setTab('add')}
+              <button onClick={() => setShowAddForm(true)}
                 style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                 + 상품 등록
               </button>
@@ -449,7 +449,7 @@ export default function AdminPage() {
                 <p style={{ fontSize: 40, margin: 0 }}>📦</p>
                 <p style={{ fontSize: 15, fontWeight: 600, color: C.text, marginTop: 12 }}>등록된 상품이 없어요</p>
                 <p style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>상품을 등록하면 앱과 웹에 바로 반영돼요</p>
-                <button onClick={() => setTab('add')}
+                <button onClick={() => setShowAddForm(true)}
                   style={{ marginTop: 16, padding: '12px 24px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
                   첫 상품 등록하기
                 </button>
@@ -515,13 +515,13 @@ export default function AdminPage() {
                 ))}
               </div>
             )}
-          </div>
-        )}
-
-        {/* ━━━ 상품 등록 탭 ━━━ */}
-        {tab === 'add' && (
-          <div style={{ padding: '20px 20px' }}>
-            <h2 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 20px', color: C.text }}>새 상품 등록</h2>
+            {/* ━━━ 인라인 등록 폼 ━━━ */}
+            {showAddForm && (
+              <div style={{ padding: '20px', margin: '0 16px 24px', background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>새 상품 등록</h2>
+                  <button onClick={() => setShowAddForm(false)} style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: C.muted }}>✕</button>
+                </div>
 
             {/* 플랫폼 */}
             <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 8 }}>플랫폼</label>
@@ -625,9 +625,11 @@ export default function AdminPage() {
               {saving ? '등록 중...' : '상품 등록하기'}
             </button>
 
-            <p style={{ fontSize: 11, color: C.sub, marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
-              등록하면 앱과 웹의 해당 섹션에 바로 반영돼요
-            </p>
+                <p style={{ fontSize: 11, color: C.sub, marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
+                  등록하면 앱과 웹의 해당 섹션에 바로 반영돼요
+                </p>
+              </div>
+            )}
           </div>
         )}
 
