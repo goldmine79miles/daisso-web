@@ -5,3 +5,6 @@ dist
 .DS_Store
 *.local
 .env*.local
+
+.vercel
+tsconfig.tsbuildinfo

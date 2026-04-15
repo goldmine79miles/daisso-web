@@ -46,7 +46,7 @@ export default function FavoritesPage() {
           <div className="flex flex-col items-center py-20 text-gray-300">
             <HeartIcon size={48} />
             <p className="text-base mt-3">아직 찜한 상품이 없어요</p>
-            <p className="text-sm mt-1 text-gray-400">마음에 드는 꿀템을 찜해보세요!</p>
+            <p className="text-sm mt-1 text-gray-400">마음에 드는 제품을 찜해보세요!</p>
           </div>
         )}
       </main>

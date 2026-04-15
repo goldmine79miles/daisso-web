@@ -16,8 +16,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const cat = categories.find(c => c.slug === slug);
   if (!cat) return {};
   return {
-    title: `${cat.name} 꿀템 - 다있어`,
-    description: `${cat.name} 카테고리의 가성비 꿀템을 모아봤어요. 최저가 할인 상품을 확인하세요.`,
+    title: `${cat.name} 추천 - 다있어`,
+    description: `${cat.name} 카테고리의 검증된 가성비 제품을 모아봤어요. 최저가 할인 상품을 확인하세요.`,
   };
 }
 
@@ -40,7 +40,7 @@ export default async function CategoryPage({ params }: Props) {
 
         <section className="px-4 mt-2">
           <h1 className="text-2xl font-bold">{category.name}</h1>
-          <p className="text-sm text-gray-500 mt-1">총 {items.length}개의 꿀템</p>
+          <p className="text-sm text-gray-500 mt-1">총 {items.length}개의 추천 제품</p>
         </section>
 
         {items.length > 0 ? (

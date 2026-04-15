@@ -2,20 +2,20 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '다있어 - 가성비 꿀템만 모아놨어요',
-  description: '가성비 좋은 꿀템만 모아서 보여드리는 쇼핑 큐레이션 서비스. 생활용품부터 식품, 전자기기, 패션, 뷰티까지 카테고리별 최저가 할인 상품을 한눈에 확인하세요.',
-  keywords: ['가성비', '꿀템', '쇼핑', '할인', '최저가', '쿠팡', '추천', '다있어'],
+  title: '다있어 - 검증된 가성비 제품 다있어요',
+  description: '검증된 가성비 제품만 모아서 보여드리는 쇼핑 큐레이션 서비스. 생활용품부터 식품, 전자기기, 패션, 뷰티까지 카테고리별 최저가 할인 상품을 한눈에 확인하세요.',
+  keywords: ['가성비', '쇼핑', '할인', '최저가', '쿠팡', '추천', '다있어', '큐레이션'],
   openGraph: {
-    title: '다있어 - 가성비 꿀템만 모아놨어요',
-    description: '카테고리별 최저가 할인 상품을 한눈에! 가성비 쇼핑 큐레이션',
+    title: '다있어 - 검증된 가성비 제품 다있어요',
+    description: '검증된 가성비 제품을 한눈에! 쇼핑 큐레이션 서비스',
     type: 'website',
     locale: 'ko_KR',
     siteName: '다있어',
   },
   twitter: {
     card: 'summary_large_image',
-    title: '다있어 - 가성비 꿀템만 모아놨어요',
-    description: '카테고리별 최저가 할인 상품을 한눈에!',
+    title: '다있어 - 검증된 가성비 제품 다있어요',
+    description: '검증된 가성비 제품을 한눈에!',
   },
 };
 

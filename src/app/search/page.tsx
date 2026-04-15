@@ -23,7 +23,7 @@ export default function SearchPage() {
             type="text"
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="어떤 꿀템을 찾으세요?"
+            placeholder="어떤 제품을 찾으세요?"
             autoFocus
             className="flex-1 bg-transparent outline-none text-sm text-gray-900 placeholder:text-gray-400"
           />
@@ -52,7 +52,7 @@ export default function SearchPage() {
         ) : (
           <div className="flex flex-col items-center py-16 text-gray-300">
             <LightbulbIcon size={48} />
-            <p className="text-base mt-3 text-gray-400">어떤 꿀템을 찾으시나요?</p>
+            <p className="text-base mt-3 text-gray-400">어떤 제품을 찾으시나요?</p>
             <div className="flex flex-wrap gap-2 mt-5 justify-center">
               {SUGGESTIONS.map(kw => (
                 <button
