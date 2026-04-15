@@ -383,7 +383,7 @@ export default function AdminPage() {
     { id: 'guide', label: '가이드' },
     { id: 'goldbox', label: '골드박스', count: goldboxData.length },
     { id: 'search', label: '검색', count: searchData.length },
-    { id: 'links', label: '링크 변환', count: deeplinkResult.length },
+    { id: 'links', label: '링크 등록', count: deeplinkResult.length },
   ];
 
   return (
@@ -485,7 +485,7 @@ export default function AdminPage() {
               </h2>
               <p style={{ fontSize: 13, margin: '8px 0 0', opacity: 0.85, lineHeight: 1.55 }}>
                 4개 플랫폼의 제휴 상품을 한 곳에서 관리해요.<br />
-                쿠팡은 API로 자동 수집, 나머지는 링크를 넣으면 바로 연동돼요.
+                쿠팡은 API로 자동 변환, 나머지는 내 제휴 링크를 바로 등록해요.
               </p>
               <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
                 {(['coupang', 'toss', 'kurly', 'temu'] as const).map(p => (
@@ -557,7 +557,7 @@ export default function AdminPage() {
             <GuideSection title="쿠팡 파트너스" color={C.coupang}>
               <div style={{ marginBottom: 14 }}>
                 <PlatformBadge platform="coupang" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>API 자동 수집 + 딥링크 변환</span>
+                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>유일하게 API 지원 — URL만 넣으면 내 제휴 링크 자동 생성</span>
               </div>
               <div style={{
                 background: C.bg,
@@ -565,10 +565,10 @@ export default function AdminPage() {
                 padding: '14px 16px',
                 marginBottom: 14,
               }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>자동 수집 (골드박스)</p>
+                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>골드박스 (자동 수집)</p>
                 <Step n={1} text="골드박스 탭에서 '쿠팡 인기 상품 불러오기' 클릭" />
-                <Step n={2} text="쿠팡 실시간 인기 할인 상품이 자동으로 표시돼요" />
-                <Step n={3} text="앱의 '다들 이거 사고 있어요' 섹션에 자동 연동" />
+                <Step n={2} text="쿠팡의 실시간 인기 할인 상품 + 내 제휴 링크가 자동 생성돼요" />
+                <Step n={3} text="앱의 '다들 이거 사고 있어요'에 자동 연동" />
               </div>
               <div style={{
                 background: C.bg,
@@ -576,21 +576,21 @@ export default function AdminPage() {
                 padding: '14px 16px',
                 marginBottom: 14,
               }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>검색으로 상품 찾기</p>
-                <Step n={1} text="검색 탭에서 원하는 키워드 입력 (예: '에어팟', '물티슈')" />
-                <Step n={2} text="쿠팡 상품이 검색되고, 제휴 링크가 자동 생성돼요" />
+                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>검색 (키워드로 찾기)</p>
+                <Step n={1} text="검색 탭에서 키워드 입력 (예: '에어팟', '물티슈')" />
+                <Step n={2} text="결과 상품에 내 제휴 링크가 자동으로 붙어 나와요" />
               </div>
               <div style={{
                 background: C.bg,
                 borderRadius: 10,
                 padding: '14px 16px',
               }}>
-                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>딥링크 변환</p>
-                <Step n={1} text="쿠팡 상품 URL을 복사해요" />
-                <Step n={2} text="링크 변환 탭 → 쿠팡 선택 → URL 붙여넣기" />
-                <Step n={3} text="제휴 링크가 생성되면 복사해서 앱에 사용해요" />
+                <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>딥링크 변환 (일반 URL → 내 제휴 링크)</p>
+                <Step n={1} text="쿠팡에서 마음에 드는 상품 URL을 복사해요" />
+                <Step n={2} text="링크 탭 → 쿠팡 선택 → URL 붙여넣기" />
+                <Step n={3} text="내 파트너스 계정의 제휴 링크가 자동 생성돼요" />
                 <p style={{ fontSize: 11, color: C.deal, margin: '8px 0 0', fontWeight: 500 }}>
-                  * 제휴 링크를 통한 구매 시 수수료가 발생해요
+                  * 내 Access Key로 변환하기 때문에 수수료가 내 계정으로 들어와요
                 </p>
               </div>
             </GuideSection>
@@ -599,7 +599,7 @@ export default function AdminPage() {
             <GuideSection title="토스쇼핑" color={C.toss}>
               <div style={{ marginBottom: 14 }}>
                 <PlatformBadge platform="toss" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>토스 앱 내 쇼핑 연동</span>
+                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>이미 내 제휴 링크 — 그대로 등록</span>
               </div>
               <div style={{
                 background: C.bg,
@@ -607,12 +607,12 @@ export default function AdminPage() {
                 padding: '14px 16px',
               }}>
                 <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>사용 방법</p>
-                <Step n={1} text="토스쇼핑 상품 페이지에서 공유 → 링크 복사" />
-                <Step n={2} text="링크 변환 탭 → 토스쇼핑 선택 → URL 붙여넣기" />
-                <Step n={3} text="토스 미니앱에서 바로 토스쇼핑으로 연결돼요" />
-                <p style={{ fontSize: 11, color: C.sub, margin: '8px 0 0', lineHeight: 1.5 }}>
-                  * 토스쇼핑은 토스 앱 내에서 열리기 때문에 전환율이 높아요<br />
-                  * 제휴 코드가 포함된 링크를 사용하세요
+                <Step n={1} text="토스쇼핑 제휴 페이지에서 상품 링크를 복사해요 (이미 내 제휴 코드 포함)" />
+                <Step n={2} text="링크 탭 → 토스쇼핑 선택 → 그대로 붙여넣기" />
+                <Step n={3} text="변환 없이 바로 등록! 토스 앱에서 바로 열려요" />
+                <p style={{ fontSize: 11, color: C.green, margin: '8px 0 0', fontWeight: 500, lineHeight: 1.5 }}>
+                  * 토스쇼핑 링크는 이미 내 제휴 코드가 포함되어 있어서 변환이 필요 없어요<br />
+                  * 토스 앱 안에서 열리기 때문에 전환율이 가장 높아요
                 </p>
               </div>
             </GuideSection>
@@ -621,7 +621,7 @@ export default function AdminPage() {
             <GuideSection title="컬리" color={C.kurly}>
               <div style={{ marginBottom: 14 }}>
                 <PlatformBadge platform="kurly" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>컬리 제휴 커머스</span>
+                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>이미 내 제휴 링크 — 그대로 등록</span>
               </div>
               <div style={{
                 background: C.bg,
@@ -629,12 +629,12 @@ export default function AdminPage() {
                 padding: '14px 16px',
               }}>
                 <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>사용 방법</p>
-                <Step n={1} text="컬리 제휴 페이지(partners.kurly.com)에서 제휴 링크 생성" />
-                <Step n={2} text="링크 변환 탭 → 컬리 선택 → 제휴 링크 붙여넣기" />
-                <Step n={3} text="컬리 앱/웹으로 연결되는 링크가 등록돼요" />
-                <p style={{ fontSize: 11, color: C.sub, margin: '8px 0 0', lineHeight: 1.5 }}>
-                  * 식품/신선식품 카테고리에 강한 플랫폼이에요<br />
-                  * 수수료율: 상품별 1~7%
+                <Step n={1} text="컬리 제휴 페이지(partners.kurly.com)에서 제휴 링크 복사 (이미 내 코드 포함)" />
+                <Step n={2} text="링크 탭 → 컬리 선택 → 그대로 붙여넣기" />
+                <Step n={3} text="변환 없이 바로 등록! 컬리 앱/웹으로 연결돼요" />
+                <p style={{ fontSize: 11, color: C.green, margin: '8px 0 0', fontWeight: 500, lineHeight: 1.5 }}>
+                  * 컬리 제휴 링크는 이미 내 코드가 포함되어 있어서 변환이 필요 없어요<br />
+                  * 식품/신선식품에 강해서 생활용품 큐레이션에 딱이에요
                 </p>
               </div>
             </GuideSection>
@@ -643,7 +643,7 @@ export default function AdminPage() {
             <GuideSection title="테무" color={C.temu}>
               <div style={{ marginBottom: 14 }}>
                 <PlatformBadge platform="temu" size="md" />
-                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>테무 제휴 프로그램</span>
+                <span style={{ fontSize: 12, color: C.sub, marginLeft: 8 }}>이미 내 제휴 링크 — 그대로 등록</span>
               </div>
               <div style={{
                 background: C.bg,
@@ -651,11 +651,12 @@ export default function AdminPage() {
                 padding: '14px 16px',
               }}>
                 <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>사용 방법</p>
-                <Step n={1} text="테무 제휴 프로그램(affiliate.temu.com) 가입" />
-                <Step n={2} text="상품 링크 생성 후 제휴 코드가 포함된 URL 복사" />
-                <Step n={3} text="링크 변환 탭 → 테무 선택 → URL 붙여넣기" />
-                <p style={{ fontSize: 11, color: C.deal, margin: '8px 0 0', fontWeight: 500 }}>
-                  * 테무 제휴 프로그램 승인 후 사용 가능해요
+                <Step n={1} text="테무 제휴 프로그램(affiliate.temu.com) 가입 후 승인받기" />
+                <Step n={2} text="테무에서 상품 제휴 링크 복사 (이미 내 코드 포함)" />
+                <Step n={3} text="링크 탭 → 테무 선택 → 그대로 붙여넣기" />
+                <p style={{ fontSize: 11, color: C.green, margin: '8px 0 0', fontWeight: 500, lineHeight: 1.5 }}>
+                  * 테무 제휴 링크도 이미 내 코드가 포함되어 있어서 변환 필요 없어요<br />
+                  * 수수료율이 5~20%로 가장 높아요
                 </p>
               </div>
             </GuideSection>
@@ -864,8 +865,8 @@ export default function AdminPage() {
             {/* URL 입력 */}
             <p style={{ fontSize: 13, color: C.sub, marginBottom: 10 }}>
               {linkPlatform === 'coupang'
-                ? '쿠팡 URL을 한 줄에 하나씩 입력하세요 (제휴 링크로 자동 변환)'
-                : `${platformInfo[linkPlatform].name} 제휴 링크를 한 줄에 하나씩 입력하세요`
+                ? '쿠팡 일반 URL을 넣으면 내 제휴 링크로 자동 변환돼요 (한 줄에 하나)'
+                : `${platformInfo[linkPlatform].name}에서 복사한 내 제휴 링크를 그대로 넣으세요 (한 줄에 하나)`
               }
             </p>
             <textarea
@@ -913,23 +914,29 @@ export default function AdminPage() {
               }}
             >
               {deeplinkLoading
-                ? '생성 중...'
+                ? '처리 중...'
                 : linkPlatform === 'coupang'
-                ? '쿠팡 제휴 링크 생성'
-                : `${platformInfo[linkPlatform].name} 링크 등록`
+                ? '내 제휴 링크로 변환'
+                : `내 ${platformInfo[linkPlatform].name} 링크 등록`
               }
             </button>
 
-            {linkPlatform !== 'coupang' && (
-              <p style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
-                * {platformInfo[linkPlatform].name}은 제휴 사이트에서 직접 생성한 링크를 사용해요
+            {linkPlatform === 'coupang' ? (
+              <p style={{ fontSize: 11, color: C.sub, marginTop: 8, lineHeight: 1.5 }}>
+                * 쿠팡만 API로 자동 변환이 돼요 (내 파트너스 Access Key 사용)<br />
+                * 위 골드박스/검색 탭에서도 자동으로 내 제휴 링크가 생성돼요
+              </p>
+            ) : (
+              <p style={{ fontSize: 11, color: C.sub, marginTop: 8, lineHeight: 1.5 }}>
+                * {platformInfo[linkPlatform].name} 링크는 이미 내 제휴 코드가 포함되어 있어요<br />
+                * 변환 없이 그대로 등록하면 돼요 — 추가 변환하면 추적이 깨질 수 있어요
               </p>
             )}
 
             {deeplinkResult.length > 0 && (
               <div style={{ marginTop: 20 }}>
                 <p style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>
-                  {linkPlatform === 'coupang' ? '생성된 제휴 링크' : '등록된 링크'}
+                  {linkPlatform === 'coupang' ? '내 제휴 링크로 변환 완료' : '등록된 내 제휴 링크'}
                 </p>
                 {deeplinkResult.map((item, i) => (
                   <div key={i} style={{
