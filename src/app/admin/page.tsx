@@ -75,7 +75,16 @@ interface GoldboxItem {
   discountRate: number;
 }
 
-type TabId = 'products' | 'goldbox' | 'search' | 'guide';
+type TabId = 'products' | 'sns' | 'goldbox' | 'search' | 'guide';
+
+interface SnsResult {
+  platform: string;
+  url: string;
+  title: string;
+  description: string;
+  image: string;
+  keywords: string[];
+}
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
@@ -114,6 +123,14 @@ export default function AdminPage() {
   const [keyword, setKeyword] = useState('');
   const [searchData, setSearchData] = useState<GoldboxItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // SNS
+  const [snsUrl, setSnsUrl] = useState('');
+  const [snsResult, setSnsResult] = useState<SnsResult | null>(null);
+  const [snsLoading, setSnsLoading] = useState(false);
+  const [snsSearchResults, setSnsSearchResults] = useState<GoldboxItem[]>([]);
+  const [snsSearchLoading, setSnsSearchLoading] = useState(false);
+  const [snsSelectedKeyword, setSnsSelectedKeyword] = useState('');
 
   /* ─── 데이터 로딩 ─────────────────────────── */
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -336,6 +353,48 @@ export default function AdminPage() {
     setSearchLoading(false);
   }
 
+  /* ─── SNS ─────────────────────────── */
+  async function analyzeSns() {
+    if (!snsUrl.trim()) return;
+    setSnsLoading(true);
+    setSnsResult(null);
+    setSnsSearchResults([]);
+    setSnsSelectedKeyword('');
+    try {
+      const res = await fetch('/api/sns/extract', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: snsUrl }),
+      });
+      const json = await res.json();
+      if (json.data) {
+        setSnsResult(json.data);
+        // 첫 번째 키워드로 자동 검색
+        if (json.data.keywords.length > 0) {
+          searchSnsKeyword(json.data.keywords[0]);
+        }
+      } else {
+        alert(json.error || '분석 실패');
+      }
+    } catch (e) {
+      alert('분석 실패: ' + e);
+    }
+    setSnsLoading(false);
+  }
+
+  async function searchSnsKeyword(kw: string) {
+    setSnsSelectedKeyword(kw);
+    setSnsSearchLoading(true);
+    try {
+      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(kw)}`);
+      const json = await res.json();
+      setSnsSearchResults(json.data || []);
+    } catch {
+      setSnsSearchResults([]);
+    }
+    setSnsSearchLoading(false);
+  }
+
   /* ─── 필터 ─────────────────────────── */
   const filteredProducts = products
     .filter(p => filterSection === 'all' || p.section === filterSection)
@@ -366,6 +425,7 @@ export default function AdminPage() {
   /* ─── 탭 ─────────────────────────── */
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'products', label: '상품 관리', count: products.length },
+    { id: 'sns', label: 'SNS 발굴' },
     { id: 'goldbox', label: '골드박스', count: goldboxData.length },
     { id: 'search', label: '검색', count: searchData.length },
     { id: 'guide', label: '가이드' },
@@ -628,6 +688,171 @@ export default function AdminPage() {
                 <p style={{ fontSize: 11, color: C.sub, marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
                   등록하면 앱과 웹의 해당 섹션에 바로 반영돼요
                 </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ━━━ SNS 발굴 탭 ━━━ */}
+        {tab === 'sns' && (
+          <div style={{ padding: '20px 20px' }}>
+            {/* 설명 */}
+            <div style={{
+              padding: '16px 20px', background: `linear-gradient(135deg, #E1306C, #C13584)`,
+              borderRadius: 14, color: '#fff', marginBottom: 20,
+            }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>SNS에서 제품 발굴하기</h3>
+              <p style={{ fontSize: 12, margin: '6px 0 0', opacity: 0.85, lineHeight: 1.5 }}>
+                인스타/틱톡/유튜브 링크를 넣으면 키워드를 자동 추출하고,<br />
+                쿠팡에서 해당 제품을 바로 검색해요.
+              </p>
+            </div>
+
+            {/* URL 입력 */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <input
+                value={snsUrl}
+                onChange={e => setSnsUrl(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && analyzeSns()}
+                placeholder="인스타/틱톡/유튜브 링크 붙여넣기"
+                style={{
+                  flex: 1, padding: '14px 16px', borderRadius: 12,
+                  border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', fontFamily: 'inherit',
+                }}
+              />
+              <button
+                onClick={analyzeSns}
+                disabled={snsLoading}
+                style={{
+                  padding: '14px 20px', borderRadius: 12, border: 'none',
+                  background: snsLoading ? C.muted : '#E1306C', color: '#fff',
+                  fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+                }}
+              >
+                {snsLoading ? '분석 중...' : '분석'}
+              </button>
+            </div>
+
+            {/* 분석 결과 */}
+            {snsResult && (
+              <div style={{ background: C.card, borderRadius: 16, border: `1px solid ${C.border}`, overflow: 'hidden', marginBottom: 20 }}>
+                {/* 메타 정보 */}
+                <div style={{ padding: '16px 20px', borderBottom: `1px solid ${C.border}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, color: '#fff', padding: '2px 8px', borderRadius: 4,
+                      background: snsResult.platform === 'instagram' ? '#E1306C' :
+                        snsResult.platform === 'tiktok' ? '#000' :
+                        snsResult.platform === 'youtube' ? '#FF0000' :
+                        snsResult.platform === 'naver' ? '#03C75A' : C.sub,
+                    }}>
+                      {snsResult.platform.toUpperCase()}
+                    </span>
+                    <span style={{ fontSize: 11, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {snsResult.url}
+                    </span>
+                  </div>
+                  {snsResult.title && (
+                    <p style={{ fontSize: 14, fontWeight: 600, margin: '0 0 4px', color: C.text, lineHeight: 1.4 }}>
+                      {snsResult.title}
+                    </p>
+                  )}
+                  {snsResult.description && (
+                    <p style={{ fontSize: 12, color: C.sub, margin: 0, lineHeight: 1.5, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' as const }}>
+                      {snsResult.description}
+                    </p>
+                  )}
+                </div>
+
+                {/* 추출된 키워드 */}
+                <div style={{ padding: '14px 20px' }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 10px' }}>
+                    추출된 키워드 — 클릭하면 쿠팡 검색
+                  </p>
+                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                    {snsResult.keywords.map(kw => (
+                      <button
+                        key={kw}
+                        onClick={() => searchSnsKeyword(kw)}
+                        style={{
+                          padding: '6px 14px', borderRadius: 20, cursor: 'pointer', fontFamily: 'inherit',
+                          fontSize: 13, fontWeight: snsSelectedKeyword === kw ? 700 : 500,
+                          border: snsSelectedKeyword === kw ? `2px solid ${C.primary}` : `1px solid ${C.border}`,
+                          background: snsSelectedKeyword === kw ? C.primaryLight : C.card,
+                          color: snsSelectedKeyword === kw ? C.primary : C.sub,
+                        }}
+                      >
+                        {kw}
+                      </button>
+                    ))}
+                  </div>
+                  {snsResult.keywords.length === 0 && (
+                    <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>키워드를 추출하지 못했어요. 직접 검색 탭에서 검색해보세요.</p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 검색 결과 */}
+            {snsSearchLoading && (
+              <p style={{ textAlign: 'center', color: C.muted, padding: 20, fontSize: 13 }}>
+                "{snsSelectedKeyword}" 쿠팡 검색 중...
+              </p>
+            )}
+            {snsSearchResults.length > 0 && (
+              <div>
+                <p style={{ fontSize: 13, fontWeight: 600, color: C.text, marginBottom: 10 }}>
+                  "{snsSelectedKeyword}" 검색 결과 — 바로 등록
+                </p>
+                <div style={{ background: C.card, borderRadius: 16, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                  {snsSearchResults.map((item, i) => (
+                    <div key={item.productId || i} style={{
+                      display: 'flex', gap: 12, padding: '14px 16px',
+                      borderBottom: `1px solid ${C.border}`, alignItems: 'center',
+                    }}>
+                      <img src={item.productImage} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{item.productName}</p>
+                        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                          {item.discountRate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
+                          <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                        </div>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                        <button onClick={() => addFromSearch(item)} disabled={saving}
+                          style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          추천 등록
+                        </button>
+                        <button onClick={() => addFromGoldbox(item)} disabled={saving}
+                          style={{ padding: '6px 12px', borderRadius: 8, border: 'none', background: C.deal, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                          랭킹 등록
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 사용 팁 */}
+            {!snsResult && (
+              <div style={{ background: C.card, borderRadius: 16, padding: 20, border: `1px solid ${C.border}` }}>
+                <p style={{ fontSize: 13, fontWeight: 600, color: C.text, margin: '0 0 12px' }}>이렇게 사용해요</p>
+                {[
+                  { icon: '📱', text: '인스타/틱톡/유튜브에서 쇼핑 인플루언서 게시물 링크 복사' },
+                  { icon: '🔍', text: '붙여넣기 → 분석 클릭 → 키워드 자동 추출' },
+                  { icon: '🛒', text: '키워드 클릭 → 쿠팡 검색 → 바로 등록' },
+                ].map((tip, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, marginBottom: 8, alignItems: 'flex-start' }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>{tip.icon}</span>
+                    <p style={{ fontSize: 13, color: C.sub, margin: 0, lineHeight: 1.5 }}>{tip.text}</p>
+                  </div>
+                ))}
+                <div style={{ marginTop: 14, padding: '10px 14px', background: C.bg, borderRadius: 10 }}>
+                  <p style={{ fontSize: 11, color: C.muted, margin: 0, lineHeight: 1.5 }}>
+                    지원 플랫폼: Instagram, TikTok, YouTube, 네이버 블로그, X(Twitter), Threads
+                  </p>
+                </div>
               </div>
             )}
           </div>
