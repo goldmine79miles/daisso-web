@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 
-const ADMIN_PASSWORD = 'daisso2026';
+const ADMIN_PASSWORD = 'star888!!!';
 
 interface GoldboxItem {
   productId: string;
