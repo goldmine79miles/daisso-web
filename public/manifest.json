@@ -1,0 +1,22 @@
+{
+  "name": "다있어",
+  "short_name": "다있어",
+  "description": "검증된 가성비 제품 다있어요",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#FAFBFC",
+  "theme_color": "#E53935",
+  "icons": [
+    {
+      "src": "/logo-light.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-dark.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
