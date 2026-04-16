@@ -539,8 +539,12 @@ export default function AdminPage() {
         } catch { /* 이미지 없어도 등록 진행 */ }
       }
 
-      const sp = Number(scrapeRegForm.sale_price) || 0;
-      const op = Number(scrapeRegForm.original_price) || sp;
+      let sp = Number(scrapeRegForm.sale_price) || 0;
+      let op = Number(scrapeRegForm.original_price) || sp;
+      // 실수 방지: 원가가 판매가보다 작으면 자동으로 swap
+      if (op > 0 && sp > 0 && op < sp) {
+        [sp, op] = [op, sp];
+      }
       const dr = Number(scrapeRegForm.discount_rate) || (op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0);
       const reviews = [scrapeRegForm.review1, scrapeRegForm.review2, scrapeRegForm.review3].filter(r => r.trim());
       await fetch('/api/products', {
