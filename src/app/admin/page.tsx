@@ -834,6 +834,56 @@ export default function AdminPage() {
         {/* ━━━ 상품 관리 탭 ━━━ */}
         {tab === 'products' && (
           <div>
+            {/* 링크 변환기 — 등록 없이 내 링크만 뽑기 */}
+            <div style={{ margin: '16px 20px 0', padding: 16, background: '#E0F2FE', borderRadius: 16, border: `1px solid #7DD3FC` }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#0C4A6E', margin: '0 0 8px' }}>🔗 링크 변환기</p>
+              <p style={{ fontSize: 11, color: '#075985', margin: '0 0 10px' }}>쿠팡 링크만 입력 → 내 제휴링크로 즉시 변환 (복사만 하고 등록 안 함)</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  id="linkConvertInput"
+                  type="text"
+                  placeholder="쿠팡 URL 붙여넣기"
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid #7DD3FC`, fontSize: 13, background: '#fff' }}
+                />
+                <button
+                  onClick={async () => {
+                    const input = document.getElementById('linkConvertInput') as HTMLInputElement;
+                    const result = document.getElementById('linkConvertResult') as HTMLDivElement;
+                    const url = input?.value?.trim();
+                    if (!url || !url.includes('coupang.com')) { alert('쿠팡 링크를 입력해주세요'); return; }
+                    result.textContent = '변환중...';
+                    try {
+                      const res = await fetch('/api/coupang/deeplink', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ urls: [url] }),
+                      });
+                      const json = await res.json();
+                      const myLink = json?.data?.[0]?.shortenUrl || '';
+                      const landing = json?.data?.[0]?.landingUrl || '';
+                      if (!myLink) { result.textContent = `❌ 변환 실패: ${json?.rMessage || 'unknown'}`; return; }
+                      if (!landing.includes('lptag=AF6507576')) {
+                        result.textContent = '⛔ 내 태그 불일치';
+                        return;
+                      }
+                      result.innerHTML = `✅ <span style="font-family:monospace;background:#fff;padding:2px 6px;border-radius:4px;">${myLink}</span> <button id="linkCopyBtn" style="padding:3px 8px;border-radius:4px;border:none;background:#0C4A6E;color:#fff;font-size:11px;cursor:pointer;">복사</button>`;
+                      setTimeout(() => {
+                        const btn = document.getElementById('linkCopyBtn');
+                        btn?.addEventListener('click', async () => {
+                          try { await navigator.clipboard.writeText(myLink); alert('📋 복사 완료'); } catch { /* */ }
+                        });
+                      }, 10);
+                    } catch (e) {
+                      result.textContent = `❌ 오류: ${e}`;
+                    }
+                  }}
+                  style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: '#0C4A6E', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                >
+                  변환
+                </button>
+              </div>
+              <div id="linkConvertResult" style={{ marginTop: 8, fontSize: 12, color: '#0C4A6E', minHeight: 20, display: 'flex', alignItems: 'center', gap: 6 }}></div>
+            </div>
+
             {/* 핫딜 링크 빠른 등록 */}
             <div style={{ margin: '16px 20px', padding: 16, background: `linear-gradient(135deg, ${C.deal}11, ${C.coupang}08)`, borderRadius: 16, border: `1px solid ${C.deal}22` }}>
               <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>쿠팡 링크 빠른 등록</p>
