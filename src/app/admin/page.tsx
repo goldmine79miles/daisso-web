@@ -367,13 +367,38 @@ export default function AdminPage() {
 
   // 인플루언서 스크래핑에서 등록 — 쿠팡이면 내 딥링크로 변환
   // 스크래핑 등록 — 1단계: 폼 열기
+  // 상품명 키워드 기반 자동 카테고리 감지
+  function autoDetectCategory(title: string): string {
+    const t = title.toLowerCase();
+    // 전자기기
+    if (/이어폰|블루투스|충전|케이블|보조배터리|스피커|키보드|마우스|태블릿|모니터|노트북|usb|led|스마트워치|헤드셋|리모컨|어댑터/.test(t)) return 'electronics';
+    // 식품
+    if (/과자|라면|음료|커피|차|닭가슴살|견과|간식|초콜릿|젤리|비타민|프로틴|영양|홍삼|유산균|오메가|밀키트|소스|양념/.test(t)) return 'food';
+    // 뷰티
+    if (/화장|립|파운데이션|스킨|로션|세럼|선크림|마스크팩|샴푸|린스|바디워시|클렌징|향수|네일|아이크림|톤업|미스트/.test(t)) return 'beauty';
+    // 패션
+    if (/티셔츠|바지|원피스|자켓|코트|양말|속옷|모자|가방|신발|슬리퍼|벨트|지갑|운동화|맨투맨|후드/.test(t)) return 'fashion';
+    // 육아
+    if (/기저귀|젖병|유모차|아기|유아|이유식|장난감|놀이|키즈/.test(t)) return 'baby';
+    // 건강
+    if (/마사지|안마|체중계|혈압|온열|찜질|스트레칭|요가|필라테스|건강/.test(t)) return 'health';
+    // 반려동물
+    if (/강아지|고양이|사료|간식|펫|반려|배변|목줄|하네스/.test(t)) return 'pet';
+    // 스포츠
+    if (/운동|헬스|덤벨|런닝|등산|캠핑|자전거|수영|골프|텐트/.test(t)) return 'sports';
+    // 생활 (가장 넓은 범위 — 디폴트 전에)
+    if (/청소|세탁|수납|정리|욕실|주방|냄비|프라이팬|그릇|컵|행거|빨래|걸레|휴지|물티슈|방향제|제습|선풍기|에어컨|가습기|조명|커튼|매트|쿠션/.test(t)) return 'living';
+    return 'all';
+  }
+
   function openScrapeReg(title: string, url: string, image: string, platform: string) {
     if (!url.includes('coupang.com')) {
       alert(`⚠️ 쿠팡 외 링크(${platform})는 자동 등록 불가해요.\n쿠팡에서 같은 상품을 검색해서 등록하세요.`);
       return;
     }
+    const autoCategory = autoDetectCategory(title);
     setScrapeRegItem({ title, url, image, platform });
-    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all' });
+    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: autoCategory });
   }
 
   // 스크래핑 등록 — 가격 자동 조회
