@@ -167,6 +167,8 @@ export default function AdminPage() {
   const [scrapeLoading, setScrapeLoading] = useState(false);
   const [scrapeUrl, setScrapeUrl] = useState('');
   const [expandedInfId, setExpandedInfId] = useState<number | null>(null);
+  const [editingInfId, setEditingInfId] = useState<number | null>(null);
+  const [editInfForm, setEditInfForm] = useState({ name: '', inpock_url: '', profile_url: '', memo: '' });
 
   // 대체 추천
   const [suggestProductId, setSuggestProductId] = useState<number | null>(null);
@@ -435,6 +437,20 @@ export default function AdminPage() {
     if (!confirm('삭제할까요?')) return;
     await fetch(`/api/influencers?id=${id}`, { method: 'DELETE' });
     loadInfluencers();
+  }
+
+  async function updateInfluencer(id: number) {
+    setInfSaving(true);
+    try {
+      await fetch('/api/influencers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...editInfForm }),
+      });
+      setEditingInfId(null);
+      loadInfluencers();
+    } catch { /* ignore */ }
+    setInfSaving(false);
   }
 
   async function scrapeInfluencer(url: string) {
@@ -1190,11 +1206,15 @@ export default function AdminPage() {
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                               <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: C.text }}>{inf.name}</p>
-                              <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', background: inf.platform === 'inpock' ? '#FF6B35' : inf.platform === 'linktree' ? '#43E660' : C.sub, padding: '1px 6px', borderRadius: 4 }}>{inf.platform}</span>
+                              <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', background: inf.platform === 'inpock' ? '#FF6B35' : inf.platform === 'linktree' ? '#43E660' : inf.platform === 'littly' ? '#6C5CE7' : C.sub, padding: '1px 6px', borderRadius: 4 }}>{inf.platform}</span>
                               {inf.memo && <span style={{ fontSize: 10, color: C.sub }}>{inf.memo}</span>}
                             </div>
                           </div>
                           <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexShrink: 0 }}>
+                            <button onClick={(e) => { e.stopPropagation(); setEditingInfId(editingInfId === inf.id ? null : inf.id); setEditInfForm({ name: inf.name, inpock_url: inf.inpock_url, profile_url: inf.profile_url || '', memo: inf.memo || '' }); }}
+                              style={{ padding: '4px 8px', borderRadius: 5, border: `1px solid ${C.border}`, background: C.card, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', color: C.primary, fontWeight: 600 }}>
+                              수정
+                            </button>
                             <button onClick={(e) => { e.stopPropagation(); deleteInfluencer(inf.id); }}
                               style={{ padding: '4px 8px', borderRadius: 5, border: 'none', background: `${C.red}10`, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', color: C.red }}>
                               삭제
@@ -1202,6 +1222,32 @@ export default function AdminPage() {
                             <span style={{ fontSize: 12, color: C.muted, transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}>▼</span>
                           </div>
                         </div>
+
+                        {/* 인라인 수정 폼 */}
+                        {editingInfId === inf.id && (
+                          <div onClick={(e) => e.stopPropagation()} style={{ padding: '10px 14px', borderTop: `1px solid ${C.border}`, background: C.bg }}>
+                            <div style={{ display: 'flex', gap: 6, marginBottom: 6 }}>
+                              <input value={editInfForm.name} onChange={e => setEditInfForm({ ...editInfForm, name: e.target.value })}
+                                placeholder="이름" style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
+                              <input value={editInfForm.memo} onChange={e => setEditInfForm({ ...editInfForm, memo: e.target.value })}
+                                placeholder="메모" style={{ flex: 1, padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, outline: 'none', fontFamily: 'inherit' }} />
+                            </div>
+                            <input value={editInfForm.inpock_url} onChange={e => setEditInfForm({ ...editInfForm, inpock_url: e.target.value })}
+                              placeholder="링크 URL" style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6 }} />
+                            <input value={editInfForm.profile_url} onChange={e => setEditInfForm({ ...editInfForm, profile_url: e.target.value })}
+                              placeholder="프로필 URL (선택)" style={{ width: '100%', padding: '7px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8 }} />
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button onClick={() => updateInfluencer(inf.id)} disabled={infSaving}
+                                style={{ flex: 1, padding: '8px 0', borderRadius: 6, border: 'none', background: infSaving ? C.muted : C.primary, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                {infSaving ? '저장 중...' : '저장'}
+                              </button>
+                              <button onClick={() => setEditingInfId(null)}
+                                style={{ padding: '8px 14px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+                                취소
+                              </button>
+                            </div>
+                          </div>
+                        )}
 
                         {/* 펼쳐진 스크래핑 결과 */}
                         {isExpanded && (

@@ -206,24 +206,56 @@ function scrapeLinktree(html: string): ScrapedItem[] {
   return items;
 }
 
-/** 리틀리 스크래핑 */
+/** 리틀리 스크래핑 — base64 JSON 데이터에서 블록 추출 */
 function scrapeLittly(html: string): ScrapedItem[] {
   const items: ScrapedItem[] = [];
+  const seen = new Set<string>();
 
-  const linkPattern = /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let match;
+  // 리틀리는 <script id="data" type="text/plain">BASE64_JSON</script> 구조
+  const dataMatch = html.match(/<script id="data"[^>]*>([^<]+)<\/script>/i);
+  if (dataMatch) {
+    try {
+      const jsonStr = Buffer.from(dataMatch[1].trim(), 'base64').toString('utf8');
+      const data = JSON.parse(jsonStr);
+      const blocks = data.blocks || [];
 
-  while ((match = linkPattern.exec(html)) !== null) {
-    const href = match[1];
-    const inner = match[2];
+      for (const block of blocks) {
+        if (!block.url || !block.use) continue;
+        if (block.url.includes('litt.ly')) continue;
+        if (seen.has(block.url)) continue;
+        seen.add(block.url);
 
-    if (href.includes('litt.ly')) continue;
+        const title = (block.title || '').trim();
+        if (title.length < 2) continue;
 
-    const imgMatch = inner.match(/<img[^>]*src=["']([^"']+)["']/i);
-    const title = inner.replace(/<[^>]+>/g, '').trim().slice(0, 80);
+        let image: string | undefined;
+        if (typeof block.image === 'string' && block.image.length > 2) {
+          image = block.image.startsWith('http') ? block.image : 'https://public.litt.ly/' + block.image;
+        }
 
-    if (title.length >= 2) {
-      items.push({ title, url: href, image: imgMatch?.[1] || undefined });
+        items.push({ title, url: block.url, image });
+      }
+    } catch {
+      // base64/JSON 파싱 실패 시 HTML 폴백
+    }
+  }
+
+  // 폴백: HTML에서 <a> 태그 추출
+  if (items.length === 0) {
+    const linkPattern = /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = linkPattern.exec(html)) !== null) {
+      const href = match[1];
+      const inner = match[2];
+      if (href.includes('litt.ly')) continue;
+      if (seen.has(href)) continue;
+      seen.add(href);
+
+      const imgMatch = inner.match(/<img[^>]*src=["']([^"']+)["']/i);
+      const title = inner.replace(/<[^>]+>/g, '').trim().slice(0, 80);
+      if (title.length >= 2) {
+        items.push({ title, url: href, image: imgMatch?.[1] || undefined });
+      }
     }
   }
 

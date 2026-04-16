@@ -47,6 +47,35 @@ export async function POST(req: NextRequest) {
   }
 }
 
+export async function PUT(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { id, name, inpock_url, profile_url, memo } = body;
+    if (!id) return NextResponse.json({ error: 'id 필요' }, { status: 400 });
+    if (!name?.trim() || !inpock_url?.trim()) {
+      return NextResponse.json({ error: '이름과 링크는 필수예요' }, { status: 400 });
+    }
+
+    let url = inpock_url.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    const linkType = detectLinkType(url);
+
+    const sql = getDb();
+    const rows = await sql`
+      UPDATE influencer_links
+      SET name = ${name.trim()}, inpock_url = ${url}, platform = ${linkType},
+          profile_url = ${profile_url || ''}, memo = ${memo || ''}
+      WHERE id = ${Number(id)}
+      RETURNING *
+    `;
+    return NextResponse.json({ data: rows[0] });
+  } catch (e) {
+    return NextResponse.json({ error: '수정 실패: ' + String(e) }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
