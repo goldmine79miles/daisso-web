@@ -491,99 +491,12 @@ export default function AdminPage() {
               </button>
             </div>
 
-            {/* 섹션별 카운트 */}
-            <div style={{ padding: '0 20px 12px', display: 'flex', gap: 12 }}>
-              {SECTIONS.map(s => {
-                const count = products.filter(p => p.section === s.id).length;
-                return (
-                  <div key={s.id} style={{ padding: '10px 16px', background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, flex: 1, textAlign: 'center' }}>
-                    <p style={{ fontSize: 18, fontWeight: 800, margin: 0, color: s.id === 'ranking' ? C.deal : s.id === 'deal' ? C.green : C.primary }}>{count}</p>
-                    <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>{s.name}</p>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* 상품 리스트 */}
-            {productsLoading ? (
-              <p style={{ textAlign: 'center', color: C.muted, padding: 40 }}>불러오는 중...</p>
-            ) : filteredProducts.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
-                <p style={{ fontSize: 40, margin: 0 }}>📦</p>
-                <p style={{ fontSize: 15, fontWeight: 600, color: C.text, marginTop: 12 }}>등록된 상품이 없어요</p>
-                <p style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>상품을 등록하면 앱과 웹에 바로 반영돼요</p>
-                <button onClick={() => { setShowAddForm(true); }}
-                  style={{ marginTop: 16, padding: '12px 24px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
-                  첫 상품 등록하기
-                </button>
-              </div>
-            ) : (
-              <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
-                {filteredProducts.map((p, i) => (
-                  <div key={p.id} style={{
-                    display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
-                    opacity: p.is_active ? 1 : 0.4,
-                  }}>
-                    {/* 순서 */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-                      <button onClick={() => moveOrder(p, 'up')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
-                      <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
-                    </div>
-
-                    {/* 이미지 */}
-                    {p.image_url ? (
-                      <img src={p.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 56, height: 56, borderRadius: 10, background: C.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
-                    )}
-
-                    {/* 정보 */}
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{p.title}</p>
-                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
-                        <PlatformBadge platform={p.platform} />
-                        <SectionBadge section={p.section} />
-                        {p.category !== 'all' && (
-                          <span style={{ fontSize: 9, color: C.sub, background: C.bg, padding: '2px 6px', borderRadius: 4 }}>
-                            {CATEGORIES.find(c => c.id === p.category)?.name}
-                          </span>
-                        )}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
-                        {p.discount_rate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{p.discount_rate}%</span>}
-                        <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{p.sale_price?.toLocaleString()}원</span>
-                        {p.original_price > p.sale_price && (
-                          <span style={{ fontSize: 10, color: C.muted, textDecoration: 'line-through' }}>{p.original_price?.toLocaleString()}원</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* 액션 */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                      <button onClick={() => setEditProduct({ ...p })}
-                        style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
-                        수정
-                      </button>
-                      <button onClick={() => toggleActive(p)}
-                        style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: p.is_active ? C.primaryLight : `${C.deal}15`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: p.is_active ? C.primary : C.deal, fontWeight: 600 }}>
-                        {p.is_active ? 'ON' : 'OFF'}
-                      </button>
-                      <button onClick={() => deleteProduct(p.id)}
-                        style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: `${C.red}10`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.red }}>
-                        삭제
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-            {/* ━━━ 인라인 등록 폼 ━━━ */}
+            {/* ━━━ 인라인 등록 폼 (상단) ━━━ */}
             {showAddForm && (
-              <div style={{ padding: '20px', margin: '0 16px 24px', background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
+              <div style={{ padding: '20px', margin: '0 16px 16px', background: C.card, borderRadius: 16, border: `2px solid ${C.primary}`, boxShadow: '0 4px 20px rgba(49,130,246,0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>새 상품 등록</h2>
-                  <button onClick={() => setShowAddForm(false)} style={{ border: 'none', background: 'none', fontSize: 18, cursor: 'pointer', color: C.muted }}>✕</button>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>✏️ 새 상품 등록</h2>
+                  <button onClick={() => setShowAddForm(false)} style={{ border: 'none', background: C.bg, padding: '4px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>닫기</button>
                 </div>
 
             {/* 플랫폼 */}
@@ -687,10 +600,97 @@ export default function AdminPage() {
               style={{ width: '100%', padding: '16px 0', borderRadius: 12, border: 'none', background: saving ? C.muted : C.primary, color: '#fff', fontSize: 15, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginTop: 8 }}>
               {saving ? '등록 중...' : '상품 등록하기'}
             </button>
-
                 <p style={{ fontSize: 11, color: C.sub, marginTop: 10, textAlign: 'center', lineHeight: 1.5 }}>
                   등록하면 앱과 웹의 해당 섹션에 바로 반영돼요
                 </p>
+              </div>
+            )}
+
+            {/* 섹션별 카운트 */}
+            <div style={{ padding: '0 20px 12px', display: 'flex', gap: 12 }}>
+              {SECTIONS.map(s => {
+                const count = products.filter(p => p.section === s.id).length;
+                return (
+                  <div key={s.id} style={{ padding: '10px 16px', background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, flex: 1, textAlign: 'center' }}>
+                    <p style={{ fontSize: 18, fontWeight: 800, margin: 0, color: s.id === 'ranking' ? C.deal : s.id === 'deal' ? C.green : C.primary }}>{count}</p>
+                    <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>{s.name}</p>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* 상품 리스트 */}
+            {productsLoading ? (
+              <p style={{ textAlign: 'center', color: C.muted, padding: 40 }}>불러오는 중...</p>
+            ) : filteredProducts.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '60px 20px' }}>
+                <p style={{ fontSize: 40, margin: 0 }}>📦</p>
+                <p style={{ fontSize: 15, fontWeight: 600, color: C.text, marginTop: 12 }}>등록된 상품이 없어요</p>
+                <p style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>상품을 등록하면 앱과 웹에 바로 반영돼요</p>
+                <button onClick={() => { setShowAddForm(true); }}
+                  style={{ marginTop: 16, padding: '12px 24px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
+                  첫 상품 등록하기
+                </button>
+              </div>
+            ) : (
+              <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                {filteredProducts.map((p, i) => (
+                  <div key={p.id} style={{
+                    display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
+                    opacity: p.is_active ? 1 : 0.4,
+                  }}>
+                    {/* 순서 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                      <button onClick={() => moveOrder(p, 'up')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
+                      <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
+                    </div>
+
+                    {/* 이미지 */}
+                    {p.image_url ? (
+                      <img src={p.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 56, height: 56, borderRadius: 10, background: C.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
+                    )}
+
+                    {/* 정보 */}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{p.title}</p>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                        <PlatformBadge platform={p.platform} />
+                        <SectionBadge section={p.section} />
+                        {p.category !== 'all' && (
+                          <span style={{ fontSize: 9, color: C.sub, background: C.bg, padding: '2px 6px', borderRadius: 4 }}>
+                            {CATEGORIES.find(c => c.id === p.category)?.name}
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                        {p.discount_rate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{p.discount_rate}%</span>}
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{p.sale_price?.toLocaleString()}원</span>
+                        {p.original_price > p.sale_price && (
+                          <span style={{ fontSize: 10, color: C.muted, textDecoration: 'line-through' }}>{p.original_price?.toLocaleString()}원</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* 액션 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
+                      <button onClick={() => setEditProduct({ ...p })}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+                        수정
+                      </button>
+                      <button onClick={() => toggleActive(p)}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: p.is_active ? C.primaryLight : `${C.deal}15`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: p.is_active ? C.primary : C.deal, fontWeight: 600 }}>
+                        {p.is_active ? 'ON' : 'OFF'}
+                      </button>
+                      <button onClick={() => deleteProduct(p.id)}
+                        style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: `${C.red}10`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.red }}>
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
