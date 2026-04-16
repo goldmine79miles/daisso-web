@@ -394,14 +394,14 @@ export default function AdminPage() {
     return 'all';
   }
 
-  function openScrapeReg(title: string, url: string, image: string, platform: string) {
+  function openScrapeReg(title: string, url: string, image: string, platform: string, defaultSection: string = 'recommend') {
     if (!url.includes('coupang.com')) {
       alert(`⚠️ 쿠팡 외 링크(${platform})는 자동 등록 불가해요.\n쿠팡에서 같은 상품을 검색해서 등록하세요.`);
       return;
     }
     const autoCategory = autoDetectCategory(title);
     setScrapeRegItem({ title, url, image, platform });
-    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: autoCategory, review1: '', review2: '', review3: '' });
+    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: defaultSection, category: autoCategory, review1: '', review2: '', review3: '' });
     setMatchedProduct(null);
   }
 
@@ -770,6 +770,35 @@ export default function AdminPage() {
         {/* ━━━ 상품 관리 탭 ━━━ */}
         {tab === 'products' && (
           <div>
+            {/* 핫딜 링크 빠른 등록 */}
+            <div style={{ margin: '16px 20px', padding: 16, background: `linear-gradient(135deg, ${C.deal}11, ${C.coupang}08)`, borderRadius: 16, border: `1px solid ${C.deal}22` }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>쿠팡 링크 빠른 등록</p>
+              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 10px' }}>카톡 핫딜방/인플루언서 링크를 붙여넣으면 상품 정보 자동으로 가져와요</p>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input
+                  type="text"
+                  placeholder="쿠팡 링크 붙여넣기 (link.coupang.com/...)"
+                  id="quickLinkInput"
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13 }}
+                  onKeyDown={e => { if (e.key === 'Enter') { (document.getElementById('quickLinkBtn') as HTMLButtonElement)?.click(); }}}
+                />
+                <button id="quickLinkBtn" onClick={async () => {
+                  const input = document.getElementById('quickLinkInput') as HTMLInputElement;
+                  const linkUrl = input?.value?.trim();
+                  if (!linkUrl || !linkUrl.includes('coupang.com')) { alert('쿠팡 링크를 입력해주세요'); return; }
+                  openScrapeReg('로딩중...', linkUrl, '', 'coupang', 'deal');
+                  // 바로 상품 정보 조회 트리거
+                  setTimeout(() => {
+                    (document.querySelector('[data-lookup-btn]') as HTMLButtonElement)?.click();
+                  }, 100);
+                  input.value = '';
+                }}
+                  style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: C.deal, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  등록
+                </button>
+              </div>
+            </div>
+
             {/* 필터 */}
             <div style={{ padding: '16px 20px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <select value={filterSection} onChange={e => setFilterSection(e.target.value)}
@@ -1638,7 +1667,7 @@ export default function AdminPage() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
               {scrapeRegItem.image && <img src={proxyImg(scrapeRegItem.image) || scrapeRegItem.image} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 10 }} />}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <button onClick={lookupProduct} disabled={resolving}
+                <button data-lookup-btn onClick={lookupProduct} disabled={resolving}
                   style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: C.coupang, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: resolving ? 0.5 : 1, whiteSpace: 'nowrap' }}>
                   {resolving ? '상품 찾는중...' : '쿠팡 상품 찾기'}
                 </button>

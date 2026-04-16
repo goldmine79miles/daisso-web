@@ -107,7 +107,7 @@ export default async function HomePage() {
         {/* 다있어 TOP 10 */}
         <section className="mt-8 px-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">다있어 TOP 10</h2>
+            <h2 className="text-xl font-bold">다있어 TOP 7</h2>
             {hasDbRanking && (
               <span className="text-xs font-semibold text-green-500 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> LIVE
