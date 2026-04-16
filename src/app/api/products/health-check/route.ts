@@ -28,6 +28,21 @@ async function runHealthCheck() {
   for (const p of products) {
     checked++;
 
+    // 0. 토스/컬리/테무 등 API 없는 플랫폼 → 등록 후 2주 경과 시 알림
+    if (p.platform !== 'coupang') {
+      const createdAt = new Date(p.updated_at || p.created_at);
+      const daysSince = Math.floor((Date.now() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysSince >= 14) {
+        results.push({
+          id: p.id, title: p.title,
+          issue: `${daysSince}일 경과 (${p.platform}) — 아직 판매 중인지 확인 필요`,
+          action: '수동 확인', severity: 'warning',
+        });
+        issues++;
+      }
+      continue;
+    }
+
     // 1. 쿠팡 상품 → API로 존재 여부 체크
     if (p.platform === 'coupang' && p.title) {
       try {
