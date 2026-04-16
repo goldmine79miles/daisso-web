@@ -1,24 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { searchProducts } from '@/lib/coupang-api';
 
 /**
  * POST /api/coupang/product-info
  * 쿠팡 링크(딥링크/인플루언서/직접) → 실제 상품 페이지의 가격/이미지/제목 추출
+ * - title이 주어지면: 파트너스 검색 API로 찾아서 productId 매칭 (권장)
+ * - title이 없으면: HTML 스크래핑 시도 (쿠팡이 차단할 수 있음)
  */
 export async function POST(req: NextRequest) {
   try {
-    const { url } = await req.json();
+    const { url, title } = await req.json();
     if (!url || !url.includes('coupang.com')) {
       return NextResponse.json({ error: '쿠팡 URL이 필요해요' }, { status: 400 });
     }
 
-    // 1) 실제 상품 URL 추출
-    let productUrl = await resolveToProductUrl(url);
+    // URL에서 productId 추출
+    const productId = extractProductId(url);
+
+    // ─── title 제공 시: 파트너스 검색 API 경로 (신뢰도 높음) ───
+    if (title && title.trim()) {
+      const match = await findByPartnersSearch(title.trim(), productId);
+      if (match) {
+        return NextResponse.json({ data: match });
+      }
+      // 검색 실패 시 HTML 스크래핑으로 fallback
+    }
+
+    // ─── HTML 스크래핑 경로 (쿠팡이 차단하면 빈값 반환) ───
+    const productUrl = await resolveToProductUrl(url);
 
     if (!productUrl) {
       return NextResponse.json({ error: '상품 URL을 찾을 수 없어요' }, { status: 400 });
     }
 
-    // 2) 상품 페이지 HTML 가져오기
+    // 상품 페이지 HTML 가져오기
     const pageRes = await fetch(productUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -242,4 +257,72 @@ function cleanTitle(title: string): string {
     .replace(/\s*[-|]\s*쿠팡.*$/i, '')
     .replace(/\s*\|\s*Coupang.*$/i, '')
     .trim();
+}
+
+/**
+ * URL에서 productId 추출
+ * /vp/products/107518?itemId=... → "107518"
+ */
+function extractProductId(url: string): string | null {
+  const match = url.match(/\/vp\/products\/(\d+)/);
+  return match ? match[1] : null;
+}
+
+/**
+ * 파트너스 검색 API로 상품 찾기
+ * - 키워드 검색 → 결과 중 productId 일치 항목 반환
+ * - productId 매칭 실패 시: 첫 결과 사용 (근사값)
+ */
+async function findByPartnersSearch(
+  keyword: string,
+  productId: string | null
+): Promise<{
+  productUrl: string;
+  title: string;
+  image: string;
+  salePrice: number;
+  originalPrice: number;
+  discountRate: number;
+  description: string;
+} | null> {
+  try {
+    const result = await searchProducts(keyword, 30);
+    const items: unknown[] = result?.data?.productData || [];
+    if (!items.length) return null;
+
+    interface CoupangProduct {
+      productId?: number | string;
+      productName?: string;
+      productImage?: string;
+      productPrice?: number;
+      productUrl?: string;
+      categoryName?: string;
+    }
+
+    // productId 일치 항목 우선
+    let matched: CoupangProduct | null = null;
+    if (productId) {
+      matched = (items as CoupangProduct[]).find(p => String(p.productId) === productId) || null;
+    }
+
+    // 매칭 실패 시 첫 결과 (fallback)
+    if (!matched) {
+      matched = items[0] as CoupangProduct;
+    }
+
+    const salePrice = Number(matched.productPrice) || 0;
+
+    return {
+      productUrl: matched.productUrl || '',
+      title: matched.productName || '',
+      image: matched.productImage || '',
+      salePrice,
+      originalPrice: salePrice, // 검색 API는 원가 미제공 — 유저가 수동 입력
+      discountRate: 0,
+      description: matched.categoryName || '',
+    };
+  } catch (e) {
+    console.error('[product-info] partners search failed:', e);
+    return null;
+  }
 }

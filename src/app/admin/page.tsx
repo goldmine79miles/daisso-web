@@ -413,7 +413,11 @@ export default function AdminPage() {
       const res = await fetch('/api/coupang/product-info', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: scrapeRegItem.url }),
+        body: JSON.stringify({
+          url: scrapeRegItem.url,
+          // 유저가 입력한 제목 제공 → 파트너스 검색 API로 productId 매칭
+          title: scrapeRegItem.title !== '로딩중...' ? scrapeRegItem.title : '',
+        }),
       });
       const json = await res.json();
       const d = json?.data;
@@ -773,29 +777,40 @@ export default function AdminPage() {
             {/* 핫딜 링크 빠른 등록 */}
             <div style={{ margin: '16px 20px', padding: 16, background: `linear-gradient(135deg, ${C.deal}11, ${C.coupang}08)`, borderRadius: 16, border: `1px solid ${C.deal}22` }}>
               <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>쿠팡 링크 빠른 등록</p>
-              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 10px' }}>카톡 핫딜방/인플루언서 링크를 붙여넣으면 상품 정보 자동으로 가져와요</p>
-              <div style={{ display: 'flex', gap: 8 }}>
+              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 10px' }}>핫딜 미리보기에 보이는 상품명과 링크를 같이 넣으면 자동으로 상품 정보 찾아요 (득템 섹션 기본)</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 <input
                   type="text"
-                  placeholder="쿠팡 링크 붙여넣기 (link.coupang.com/...)"
-                  id="quickLinkInput"
-                  style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13 }}
-                  onKeyDown={e => { if (e.key === 'Enter') { (document.getElementById('quickLinkBtn') as HTMLButtonElement)?.click(); }}}
+                  placeholder="상품명 (핫딜 미리보기에서 복붙)"
+                  id="quickTitleInput"
+                  style={{ padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13 }}
                 />
-                <button id="quickLinkBtn" onClick={async () => {
-                  const input = document.getElementById('quickLinkInput') as HTMLInputElement;
-                  const linkUrl = input?.value?.trim();
-                  if (!linkUrl || !linkUrl.includes('coupang.com')) { alert('쿠팡 링크를 입력해주세요'); return; }
-                  openScrapeReg('로딩중...', linkUrl, '', 'coupang', 'deal');
-                  // 바로 상품 정보 조회 트리거
-                  setTimeout(() => {
-                    (document.querySelector('[data-lookup-btn]') as HTMLButtonElement)?.click();
-                  }, 100);
-                  input.value = '';
-                }}
-                  style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: C.deal, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                  등록
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input
+                    type="text"
+                    placeholder="쿠팡 링크 붙여넣기 (link.coupang.com/...)"
+                    id="quickLinkInput"
+                    style={{ flex: 1, padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13 }}
+                    onKeyDown={e => { if (e.key === 'Enter') { (document.getElementById('quickLinkBtn') as HTMLButtonElement)?.click(); }}}
+                  />
+                  <button id="quickLinkBtn" onClick={async () => {
+                    const linkInput = document.getElementById('quickLinkInput') as HTMLInputElement;
+                    const titleInput = document.getElementById('quickTitleInput') as HTMLInputElement;
+                    const linkUrl = linkInput?.value?.trim();
+                    const productTitle = titleInput?.value?.trim() || '';
+                    if (!linkUrl || !linkUrl.includes('coupang.com')) { alert('쿠팡 링크를 입력해주세요'); return; }
+                    openScrapeReg(productTitle || '로딩중...', linkUrl, '', 'coupang', 'deal');
+                    // 바로 상품 정보 조회 트리거 (title 포함)
+                    setTimeout(() => {
+                      (document.querySelector('[data-lookup-btn]') as HTMLButtonElement)?.click();
+                    }, 100);
+                    linkInput.value = '';
+                    titleInput.value = '';
+                  }}
+                    style={{ padding: '10px 16px', borderRadius: 10, border: 'none', background: C.deal, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                    등록
+                  </button>
+                </div>
               </div>
             </div>
 
