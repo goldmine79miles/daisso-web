@@ -92,13 +92,13 @@ async function fetchMeta(url: string): Promise<{ title: string; description: str
 
 function decodeHTMLEntities(text: string): string {
   return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&#x27;/g, "'")
-    .replace(/&#x2F;/g, '/');
+    .replace(/&apos;/g, "'");
 }
 
 function extractKeywords(title: string, description: string): string[] {
