@@ -75,7 +75,36 @@ interface GoldboxItem {
   discountRate: number;
 }
 
-type TabId = 'products' | 'sns' | 'goldbox' | 'search' | 'guide';
+type TabId = 'products' | 'influencers' | 'sns' | 'goldbox' | 'search' | 'guide';
+
+interface Influencer {
+  id: number;
+  name: string;
+  platform: string;
+  profile_url: string;
+  inpock_url: string;
+  memo: string;
+  is_active: boolean;
+  last_scraped_at: string | null;
+  created_at: string;
+}
+
+interface ScrapedItem {
+  title: string;
+  url: string;
+  image?: string;
+  platform?: string;
+}
+
+interface Suggestion {
+  source: 'coupang' | 'influencer';
+  title: string;
+  url: string;
+  image?: string;
+  price?: number;
+  discount?: number;
+  influencerName?: string;
+}
 
 interface SnsResult {
   platform: string;
@@ -128,6 +157,20 @@ export default function AdminPage() {
   const [keyword, setKeyword] = useState('');
   const [searchData, setSearchData] = useState<GoldboxItem[]>([]);
   const [searchLoading, setSearchLoading] = useState(false);
+
+  // 인플루언서
+  const [influencers, setInfluencers] = useState<Influencer[]>([]);
+  const [infLoading, setInfLoading] = useState(false);
+  const [infForm, setInfForm] = useState({ name: '', inpock_url: '', profile_url: '', memo: '' });
+  const [infSaving, setInfSaving] = useState(false);
+  const [scrapeResult, setScrapeResult] = useState<{ linkType: string; shoppingItems: ScrapedItem[]; allItems: ScrapedItem[] } | null>(null);
+  const [scrapeLoading, setScrapeLoading] = useState(false);
+  const [scrapeUrl, setScrapeUrl] = useState('');
+
+  // 대체 추천
+  const [suggestProductId, setSuggestProductId] = useState<number | null>(null);
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestLoading, setSuggestLoading] = useState(false);
 
   // SNS
   const [snsUrl, setSnsUrl] = useState('');
@@ -358,6 +401,73 @@ export default function AdminPage() {
     setSearchLoading(false);
   }
 
+  /* ─── 인플루언서 로드 ─────────────────────────── */
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (authed && tab === 'influencers') loadInfluencers(); }, [authed, tab]);
+
+  const loadInfluencers = useCallback(async () => {
+    setInfLoading(true);
+    try {
+      const res = await fetch('/api/influencers');
+      const json = await res.json();
+      setInfluencers(json.data || []);
+    } catch { setInfluencers([]); }
+    setInfLoading(false);
+  }, []);
+
+  async function saveInfluencer() {
+    if (!infForm.name.trim() || !infForm.inpock_url.trim()) { alert('이름과 링크는 필수!'); return; }
+    setInfSaving(true);
+    try {
+      await fetch('/api/influencers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(infForm),
+      });
+      setInfForm({ name: '', inpock_url: '', profile_url: '', memo: '' });
+      loadInfluencers();
+    } catch (e) { alert('등록 실패: ' + e); }
+    setInfSaving(false);
+  }
+
+  async function deleteInfluencer(id: number) {
+    if (!confirm('삭제할까요?')) return;
+    await fetch(`/api/influencers?id=${id}`, { method: 'DELETE' });
+    loadInfluencers();
+  }
+
+  async function scrapeInfluencer(url: string) {
+    setScrapeUrl(url);
+    setScrapeLoading(true);
+    setScrapeResult(null);
+    try {
+      const res = await fetch('/api/influencers/scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url }),
+      });
+      const json = await res.json();
+      setScrapeResult(json.data || null);
+    } catch { setScrapeResult(null); }
+    setScrapeLoading(false);
+  }
+
+  async function fetchSuggestions(productId: number) {
+    setSuggestProductId(productId);
+    setSuggestLoading(true);
+    setSuggestions([]);
+    try {
+      const res = await fetch('/api/products/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId }),
+      });
+      const json = await res.json();
+      setSuggestions(json.data?.suggestions || []);
+    } catch { setSuggestions([]); }
+    setSuggestLoading(false);
+  }
+
   /* ─── SNS ─────────────────────────── */
   async function analyzeSns() {
     if (!snsUrl.trim()) return;
@@ -430,6 +540,7 @@ export default function AdminPage() {
   /* ─── 탭 ─────────────────────────── */
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'products', label: '상품 관리', count: products.length },
+    { id: 'influencers', label: '인플루언서', count: influencers.length },
     { id: 'sns', label: 'SNS 발굴' },
     { id: 'goldbox', label: '골드박스', count: goldboxData.length },
     { id: 'search', label: '검색', count: searchData.length },
@@ -756,6 +867,12 @@ export default function AdminPage() {
                         style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: `${C.red}10`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.red }}>
                         삭제
                       </button>
+                      {!p.is_active && (
+                        <button onClick={() => fetchSuggestions(p.id)}
+                          style={{ padding: '4px 10px', borderRadius: 6, border: 'none', background: `${C.green}15`, fontSize: 10, cursor: 'pointer', fontFamily: 'inherit', color: C.green, fontWeight: 600 }}>
+                          🔄 대체
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -1008,6 +1125,145 @@ export default function AdminPage() {
           </div>
         )}
 
+        {/* ━━━ 인플루언서 탭 ━━━ */}
+        {tab === 'influencers' && (
+          <div style={{ padding: '20px 20px' }}>
+            {/* 설명 */}
+            <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #FF6B35, #FF8C42)', borderRadius: 14, color: '#fff', marginBottom: 20 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>인플루언서 링크 관리</h3>
+              <p style={{ fontSize: 12, margin: '6px 0 0', opacity: 0.85, lineHeight: 1.5 }}>
+                인포크/링크트리/리틀리 등 인플루언서 쇼핑 링크를 등록하면<br />
+                상품 품절 시 여기서 대체 상품 후보를 자동으로 찾아줘요.
+              </p>
+            </div>
+
+            {/* 등록 폼 */}
+            <div style={{ background: C.card, borderRadius: 16, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 14px', color: C.text }}>➕ 인플루언서 추가</h4>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input value={infForm.name} onChange={e => setInfForm({ ...infForm, name: e.target.value })}
+                  placeholder="인플루언서 이름 (예: 살림남)"
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                />
+                <input value={infForm.memo} onChange={e => setInfForm({ ...infForm, memo: e.target.value })}
+                  placeholder="메모 (선택)"
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                />
+              </div>
+              <input value={infForm.inpock_url} onChange={e => setInfForm({ ...infForm, inpock_url: e.target.value })}
+                placeholder="인포크/링크트리/리틀리 URL (필수)"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }}
+              />
+              <input value={infForm.profile_url} onChange={e => setInfForm({ ...infForm, profile_url: e.target.value })}
+                placeholder="인스타/틱톡 프로필 URL (선택)"
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 12 }}
+              />
+              <button onClick={saveInfluencer} disabled={infSaving}
+                style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: infSaving ? C.muted : C.deal, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                {infSaving ? '등록 중...' : '등록하기'}
+              </button>
+            </div>
+
+            {/* 스크래핑 테스트 */}
+            <div style={{ background: C.card, borderRadius: 16, padding: 20, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+              <h4 style={{ fontSize: 14, fontWeight: 700, margin: '0 0 14px', color: C.text }}>🔍 링크 스크래핑 테스트</h4>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <input value={scrapeUrl} onChange={e => setScrapeUrl(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && scrapeInfluencer(scrapeUrl)}
+                  placeholder="인포크/링크트리 URL 붙여넣기"
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                />
+                <button onClick={() => scrapeInfluencer(scrapeUrl)} disabled={scrapeLoading}
+                  style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: scrapeLoading ? C.muted : C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  {scrapeLoading ? '분석 중...' : '분석'}
+                </button>
+              </div>
+
+              {/* 스크래핑 결과 */}
+              {scrapeResult && (
+                <div style={{ marginTop: 14 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>
+                    🛒 쇼핑 링크 {scrapeResult.shoppingItems.length}개 / 전체 {scrapeResult.allItems.length}개
+                    <span style={{ fontSize: 10, color: C.muted, marginLeft: 8 }}>({scrapeResult.linkType})</span>
+                  </p>
+                  {scrapeResult.shoppingItems.length > 0 ? (
+                    <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                      {scrapeResult.shoppingItems.map((item, i) => (
+                        <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
+                          {item.image && <img src={item.image} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 12, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{item.title}</p>
+                            {item.platform && (
+                              <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', background: item.platform === 'coupang' ? C.coupang : item.platform === 'toss' ? C.toss : C.sub, padding: '1px 6px', borderRadius: 4, marginTop: 3, display: 'inline-block' }}>{item.platform}</span>
+                            )}
+                          </div>
+                          <button onClick={() => addFromSearch({ productId: '', productName: item.title, productPrice: 0, productImage: item.image || '', productUrl: item.url, categoryName: '', originalPrice: 0, discountRate: 0 })} disabled={saving}
+                            style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: C.primary, color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                            등록
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div style={{ padding: 16, textAlign: 'center', background: C.bg, borderRadius: 10 }}>
+                      <p style={{ fontSize: 12, color: C.muted, margin: 0 }}>쇼핑 링크가 없어요. 전체 링크를 확인해보세요.</p>
+                    </div>
+                  )}
+                  {scrapeResult.allItems.length > scrapeResult.shoppingItems.length && (
+                    <details style={{ marginTop: 10 }}>
+                      <summary style={{ fontSize: 11, color: C.sub, cursor: 'pointer' }}>전체 링크 {scrapeResult.allItems.length}개 보기</summary>
+                      <div style={{ marginTop: 8, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                        {scrapeResult.allItems.map((item, i) => (
+                          <div key={i} style={{ padding: '8px 14px', borderBottom: `1px solid ${C.border}`, fontSize: 12 }}>
+                            <p style={{ margin: 0, fontWeight: 500, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+                            <p style={{ margin: '2px 0 0', fontSize: 10, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.url}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </details>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 등록된 인플루언서 목록 */}
+            {influencers.length === 0 && !infLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px' }}>
+                <p style={{ fontSize: 32, margin: 0 }}>👤</p>
+                <p style={{ fontSize: 14, fontWeight: 600, color: C.text, marginTop: 10 }}>등록된 인플루언서가 없어요</p>
+                <p style={{ fontSize: 12, color: C.sub, marginTop: 4 }}>위에서 인포크/링크트리 링크를 등록해보세요</p>
+              </div>
+            ) : (
+              <div style={{ background: C.card, borderRadius: 16, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                {infLoading && <p style={{ textAlign: 'center', color: C.muted, padding: 20, fontSize: 13 }}>불러오는 중...</p>}
+                {influencers.map(inf => (
+                  <div key={inf.id} style={{ padding: '14px 16px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 12, alignItems: 'center' }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 20, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>👤</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: C.text }}>{inf.name}</p>
+                        <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', background: inf.platform === 'inpock' ? '#FF6B35' : inf.platform === 'linktree' ? '#43E660' : C.sub, padding: '1px 6px', borderRadius: 4 }}>{inf.platform}</span>
+                      </div>
+                      <p style={{ fontSize: 11, color: C.muted, margin: '2px 0 0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inf.inpock_url}</p>
+                      {inf.memo && <p style={{ fontSize: 10, color: C.sub, margin: '2px 0 0' }}>{inf.memo}</p>}
+                    </div>
+                    <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                      <button onClick={() => scrapeInfluencer(inf.inpock_url)}
+                        style={{ padding: '6px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.primary, fontWeight: 600 }}>
+                        스캔
+                      </button>
+                      <button onClick={() => deleteInfluencer(inf.id)}
+                        style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: `${C.red}10`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.red }}>
+                        삭제
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* ━━━ 가이드 탭 ━━━ */}
         {tab === 'guide' && (
           <div style={{ padding: '20px 16px' }}>
@@ -1134,6 +1390,60 @@ export default function AdminPage() {
                 저장
               </button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* ━━━ 대체 추천 모달 ━━━ */}
+      {suggestProductId && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => { setSuggestProductId(null); setSuggestions([]); }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>🔄 대체 상품 추천</h3>
+              <button onClick={() => { setSuggestProductId(null); setSuggestions([]); }}
+                style={{ border: 'none', background: C.bg, padding: '4px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>닫기</button>
+            </div>
+
+            {suggestLoading ? (
+              <div style={{ textAlign: 'center', padding: 40 }}>
+                <p style={{ fontSize: 14, color: C.muted }}>🔍 쿠팡 + 인플루언서에서 찾는 중...</p>
+              </div>
+            ) : suggestions.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40 }}>
+                <p style={{ fontSize: 14, color: C.muted }}>추천 상품을 찾지 못했어요</p>
+                <p style={{ fontSize: 12, color: C.sub }}>검색 탭에서 직접 검색해보세요</p>
+              </div>
+            ) : (
+              <div style={{ borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                {suggestions.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 10, padding: '12px 14px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
+                    {s.image ? (
+                      <img src={s.image} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', flexShrink: 0, background: C.bg }} />
+                    ) : (
+                      <div style={{ width: 48, height: 48, borderRadius: 8, background: C.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>📷</div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.title}</p>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 3, alignItems: 'center' }}>
+                        <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', padding: '1px 6px', borderRadius: 4, background: s.source === 'coupang' ? C.coupang : C.deal }}>
+                          {s.source === 'coupang' ? '쿠팡' : s.influencerName || '인플루언서'}
+                        </span>
+                        {s.price && s.price > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: C.text }}>{s.price.toLocaleString()}원</span>}
+                        {s.discount && s.discount > 0 && <span style={{ fontSize: 11, fontWeight: 800, color: C.deal }}>{s.discount}%</span>}
+                      </div>
+                    </div>
+                    <button onClick={() => {
+                      addFromSearch({ productId: '', productName: s.title, productPrice: s.price || 0, productImage: s.image || '', productUrl: s.url, categoryName: '', originalPrice: 0, discountRate: s.discount || 0 });
+                      setSuggestProductId(null); setSuggestions([]);
+                    }} disabled={saving}
+                      style={{ padding: '8px 12px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                      등록
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

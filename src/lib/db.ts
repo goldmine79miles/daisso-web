@@ -35,6 +35,22 @@ export async function initTables() {
   await sql`CREATE INDEX IF NOT EXISTS idx_products_platform ON products(platform)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active)`;
 
+  // 인플루언서 링크 테이블
+  await sql`
+    CREATE TABLE IF NOT EXISTS influencer_links (
+      id SERIAL PRIMARY KEY,
+      name VARCHAR(100) NOT NULL,
+      platform VARCHAR(30) NOT NULL DEFAULT 'instagram',
+      profile_url TEXT,
+      inpock_url TEXT NOT NULL,
+      memo TEXT,
+      is_active BOOLEAN DEFAULT true,
+      last_scraped_at TIMESTAMP,
+      created_at TIMESTAMP DEFAULT NOW()
+    )
+  `;
+  await sql`CREATE INDEX IF NOT EXISTS idx_influencer_active ON influencer_links(is_active)`;
+
   return { success: true };
 }
 
