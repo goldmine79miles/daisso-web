@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
     const html = await pageRes.text();
 
     // 3) 메타 태그 + HTML에서 정보 추출
-    const title = extractMeta(html, 'og:title') || extractTag(html, /<title>([^<]+)<\/title>/) || '';
+    const scrapedTitle = extractMeta(html, 'og:title') || extractTag(html, /<title>([^<]+)<\/title>/) || '';
     const image = extractMeta(html, 'og:image') || '';
     const description = extractMeta(html, 'og:description') || '';
 
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       data: {
         productUrl,
-        title: cleanTitle(title),
+        title: cleanTitle(scrapedTitle),
         image,
         salePrice,
         originalPrice,
