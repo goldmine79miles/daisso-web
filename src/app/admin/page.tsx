@@ -868,6 +868,71 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* 골드박스 자동 채우기 */}
+            <div style={{ margin: '0 20px 16px', padding: 16, background: `linear-gradient(135deg, ${C.primary}11, ${C.coupang}08)`, borderRadius: 16, border: `1px solid ${C.primary}22` }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>🎁 쿠팡 골드박스 자동 채우기</p>
+              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 10px' }}>카테고리별로 골드박스 인기상품 1개씩 내 제휴링크로 변환해서 &quot;가성비 추천&quot; 섹션에 등록</p>
+              <button
+                onClick={async () => {
+                  if (!confirm('골드박스에서 카테고리별 1개씩 추천 섹션에 자동 등록합니다. 진행할까요?')) return;
+                  const CATEGORY_MAP = [
+                    { goldId: 1013, siteCat: 'kitchen' },
+                    { goldId: 1014, siteCat: 'living' },
+                    { goldId: 1012, siteCat: 'food' },
+                    { goldId: 1016, siteCat: 'electronics' },
+                    { goldId: 1010, siteCat: 'beauty' },
+                    { goldId: 1011, siteCat: 'baby' },
+                    { goldId: 1017, siteCat: 'sports' },
+                    { goldId: 1024, siteCat: 'pet' },
+                    { goldId: 1015, siteCat: 'interior' },
+                  ];
+                  let success = 0, failed = 0;
+                  for (const { goldId, siteCat } of CATEGORY_MAP) {
+                    try {
+                      const gbRes = await fetch(`/api/coupang/goldbox?categoryId=${goldId}`);
+                      const gbJson = await gbRes.json();
+                      const picked = (gbJson?.data?.productData || gbJson?.data || [])[0];
+                      if (!picked?.productUrl) { failed++; continue; }
+                      // 내 제휴링크로 변환
+                      const dlRes = await fetch('/api/coupang/deeplink', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ urls: [picked.productUrl] }),
+                      });
+                      const dlJson = await dlRes.json();
+                      const landingUrl = dlJson?.data?.[0]?.landingUrl || '';
+                      const myLink = dlJson?.data?.[0]?.shortenUrl;
+                      if (!myLink || !landingUrl.includes('lptag=AF6507576')) { failed++; continue; }
+                      const sp = Number(picked.discountPrice) || Number(picked.productPrice) || 0;
+                      const op = Number(picked.originalPrice) || Number(picked.productPrice) || sp;
+                      const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                      await fetch('/api/products', {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          title: picked.productName,
+                          image_url: picked.productImage || null,
+                          affiliate_url: myLink,
+                          platform: 'coupang',
+                          category: siteCat,
+                          section: 'recommend',
+                          sale_price: sp,
+                          original_price: op,
+                          discount_rate: dr,
+                        }),
+                      });
+                      success++;
+                    } catch {
+                      failed++;
+                    }
+                  }
+                  loadProducts();
+                  alert(`✅ 완료 — 성공 ${success}개 / 실패 ${failed}개`);
+                }}
+                style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                카테고리별 골드박스 자동 채우기 (9개)
+              </button>
+            </div>
+
             {/* 필터 */}
             <div style={{ padding: '16px 20px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <select value={filterSection} onChange={e => setFilterSection(e.target.value)}
