@@ -18,10 +18,12 @@ export async function POST(req: NextRequest) {
     const productId = extractProductId(url);
 
     // ─── title 제공 시: 파트너스 검색 API 경로 (신뢰도 높음) ───
+    console.log('[product-info] url=', url, 'title=', title, 'productId=', productId);
     if (title && title.trim()) {
       const match = await findByPartnersSearch(title.trim(), productId);
+      console.log('[product-info] partners search match:', match ? 'FOUND' : 'NULL');
       if (match) {
-        return NextResponse.json({ data: match });
+        return NextResponse.json({ data: match, via: 'partners-search' });
       }
       // 검색 실패 시 HTML 스크래핑으로 fallback
     }
@@ -286,8 +288,10 @@ async function findByPartnersSearch(
   description: string;
 } | null> {
   try {
+    console.log('[findByPartnersSearch] keyword=', keyword, 'productId=', productId);
     const result = await searchProducts(keyword, 30);
     const items: unknown[] = result?.data?.productData || [];
+    console.log('[findByPartnersSearch] items.length=', items.length, 'first productId=', (items[0] as { productId?: number })?.productId);
     if (!items.length) return null;
 
     interface CoupangProduct {
