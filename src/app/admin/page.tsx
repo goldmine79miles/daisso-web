@@ -182,6 +182,9 @@ export default function AdminPage() {
   // 스크래핑 등록 폼
   const [scrapeRegItem, setScrapeRegItem] = useState<{ title: string; url: string; image: string; platform: string } | null>(null);
   const [scrapeRegForm, setScrapeRegForm] = useState({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' });
+  const [matchedProduct, setMatchedProduct] = useState<{ name: string; image: string; url: string; price: number; originalPrice: number; discount: number } | null>(null);
+  const [resolvedCoupangUrl, setResolvedCoupangUrl] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
 
   // 대체 추천
   const [suggestProductId, setSuggestProductId] = useState<number | null>(null);
@@ -399,48 +402,50 @@ export default function AdminPage() {
     const autoCategory = autoDetectCategory(title);
     setScrapeRegItem({ title, url, image, platform });
     setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: autoCategory, review1: '', review2: '', review3: '' });
+    setMatchedProduct(null);
   }
 
-  // 스크래핑 등록 — 가격+이미지 자동 조회
-  async function lookupPrice() {
+  // 스크래핑 등록 — 실제 쿠팡 상품 정보 조회 (리다이렉트 따라가서 정확한 상품)
+  async function lookupProduct() {
     if (!scrapeRegItem) return;
-    setSaving(true);
+    setResolving(true);
     try {
-      const kw = scrapeRegItem.title
-        .replace(/^\d+[\.\-\s]*/, '')
-        .replace(/[★✨🔥⭐\[\]()（）]/g, '')
-        .trim()
-        .slice(0, 30);
-      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(kw)}&limit=5`);
+      const res = await fetch('/api/coupang/product-info', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: scrapeRegItem.url }),
+      });
       const json = await res.json();
-      const items = json?.data?.productData || json?.data || [];
-      if (items.length > 0) {
-        const best = items[0];
-        const sp = best.productPrice || 0;
-        const op = best.originalPrice || sp;
-        const dr = best.discountRate || (op > sp ? Math.round((1 - sp / op) * 100) : 0);
-
+      const d = json?.data;
+      if (d) {
+        // 가격 자동 채움
         setScrapeRegForm(f => ({
           ...f,
-          sale_price: String(sp),
-          original_price: String(op),
-          discount_rate: String(dr),
+          sale_price: String(d.salePrice || ''),
+          original_price: String(d.originalPrice || d.salePrice || ''),
+          discount_rate: String(d.discountRate || ''),
         }));
-
-        // 쿠팡 이미지로 교체할지 물어보기
-        if (best.productImage) {
-          const useImg = confirm(`쿠팡 검색 매칭 상품:\n"${(best.productName || '').slice(0, 50)}"\n\n할인가: ${sp.toLocaleString()}원 (${dr}% 할인)\n원가: ${op.toLocaleString()}원\n\n쿠팡 상품 이미지로 교체할까요?`);
-          if (useImg) {
-            setScrapeRegItem(prev => prev ? { ...prev, image: best.productImage } : prev);
-          }
+        // 매칭 정보 표시
+        setMatchedProduct({
+          name: d.title || '',
+          image: d.image || '',
+          url: d.productUrl || '',
+          price: d.salePrice || 0,
+          originalPrice: d.originalPrice || 0,
+          discount: d.discountRate || 0,
+        });
+        setResolvedCoupangUrl(d.productUrl || null);
+        // 이미지도 쿠팡 실제 이미지로 교체
+        if (d.image) {
+          setScrapeRegItem(prev => prev ? { ...prev, image: d.image, title: d.title || prev.title } : prev);
         }
       } else {
-        alert('검색 결과가 없어요. 직접 입력해주세요.');
+        alert(json?.error || '상품 정보를 가져올 수 없어요.');
       }
     } catch {
-      alert('가격 조회 실패. 직접 입력해주세요.');
+      alert('상품 조회 실패');
     }
-    setSaving(false);
+    setResolving(false);
   }
 
   // 스크래핑 등록 — 2단계: 확정
@@ -1629,13 +1634,38 @@ export default function AdminPage() {
             <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px' }}>상품 등록</h3>
             <p style={{ fontSize: 13, color: C.sub, margin: '0 0 16px', lineHeight: 1.4 }}>{scrapeRegItem.title.slice(0, 60)}{scrapeRegItem.title.length > 60 ? '...' : ''}</p>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              {scrapeRegItem.image && <img src={proxyImg(scrapeRegItem.image)} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 10 }} />}
-              <button onClick={lookupPrice} disabled={saving}
-                style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.5 : 1, whiteSpace: 'nowrap' }}>
-                {saving ? '조회중...' : '쿠팡 가격 조회'}
-              </button>
+            {/* 상품 조회 버튼 */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              {scrapeRegItem.image && <img src={proxyImg(scrapeRegItem.image) || scrapeRegItem.image} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 10 }} />}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <button onClick={lookupProduct} disabled={resolving}
+                  style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: C.coupang, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: resolving ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                  {resolving ? '상품 찾는중...' : '쿠팡 상품 찾기'}
+                </button>
+                {resolvedCoupangUrl && (
+                  <a href={resolvedCoupangUrl} target="_blank" rel="noreferrer"
+                    style={{ fontSize: 11, color: C.primary, textDecoration: 'underline' }}>
+                    쿠팡에서 직접 확인 →
+                  </a>
+                )}
+              </div>
             </div>
+
+            {/* 매칭된 상품 정보 */}
+            {matchedProduct && (
+              <div style={{ background: '#F8F9FA', borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 13 }}>
+                <p style={{ fontWeight: 700, color: C.text, margin: '0 0 4px', lineHeight: 1.4 }}>
+                  {matchedProduct.name.slice(0, 60)}{matchedProduct.name.length > 60 ? '...' : ''}
+                </p>
+                <p style={{ color: C.sub, margin: 0, fontSize: 12 }}>
+                  {matchedProduct.discount > 0 && <span style={{ color: C.deal, fontWeight: 700 }}>{matchedProduct.discount}% </span>}
+                  {matchedProduct.price.toLocaleString()}원
+                  {matchedProduct.originalPrice > matchedProduct.price && (
+                    <span style={{ textDecoration: 'line-through', color: C.muted, marginLeft: 6 }}>{matchedProduct.originalPrice.toLocaleString()}원</span>
+                  )}
+                </p>
+              </div>
+            )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
