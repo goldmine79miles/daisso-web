@@ -18,14 +18,17 @@ async function resolveRedirect(url: string): Promise<string> {
         redirect: 'follow',
         headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15' },
       });
-      const html = await res.text();
+      const rawHtml = await res.text();
 
-      // HTML 안의 암호화된 JS에서 productId, itemId, vendorItemId 추출
-      // \x26 = &, \x3D = =, \x25 = %
-      // productId\x253D{ID} 또는 productId=3D{ID} 패턴
-      const productIdMatch = html.match(/productId(?:\\x25|%)?(?:3D|=)(\d+)/i);
-      const itemIdMatch = html.match(/itemId(?:\\x25|%)?(?:3D|=)(\d+)/i);
-      const vendorItemIdMatch = html.match(/vendorItemId(?:\\x25|%)?(?:3D|=)(\d+)/i);
+      // HTML 안의 JS에서 productId, itemId, vendorItemId 추출
+      // 1) \xNN 이스케이프 디코딩 → 2) %NN URL 디코딩 → 3) 패턴 매칭
+      const decoded = rawHtml
+        .replace(/\\x([0-9a-f]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+        .replace(/%[0-9a-f]{2}/gi, m => { try { return decodeURIComponent(m); } catch { return m; } });
+
+      const productIdMatch = decoded.match(/productId[^\d]{0,3}(\d+)/i);
+      const itemIdMatch = decoded.match(/itemId[^\d]{0,3}(\d+)/i);
+      const vendorItemIdMatch = decoded.match(/vendorItemId[^\d]{0,3}(\d+)/i);
 
       if (productIdMatch) {
         const productId = productIdMatch[1];
