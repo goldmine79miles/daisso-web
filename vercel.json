@@ -2,7 +2,11 @@
   "crons": [
     {
       "path": "/api/products/health-check",
-      "schedule": "0 9 * * *"
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/coupang/report",
+      "schedule": "0 1 * * *"
     }
   ]
 }
