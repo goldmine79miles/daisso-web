@@ -1827,6 +1827,25 @@ export default function AdminPage() {
               </div>
             </div>
 
+            {/* 썸네일 URL 직접 붙여넣기 */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, display: 'block', marginBottom: 4 }}>
+                썸네일 URL (쿠팡 이미지 우클릭 → 이미지 주소 복사)
+              </label>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                {scrapeRegItem.image && (
+                  <img src={proxyImg(scrapeRegItem.image) || scrapeRegItem.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }} />
+                )}
+                <input
+                  type="text"
+                  value={scrapeRegItem.image}
+                  placeholder="https://thumbnail.coupangcdn.com/..."
+                  onChange={e => setScrapeRegItem(prev => prev ? { ...prev, image: e.target.value } : prev)}
+                  style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12 }}
+                />
+              </div>
+            </div>
+
             {/* 매칭된 상품 정보 */}
             {matchedProduct && (
               <div style={{ background: '#F8F9FA', borderRadius: 12, padding: 12, marginBottom: 12, fontSize: 13 }}>
