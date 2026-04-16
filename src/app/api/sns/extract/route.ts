@@ -115,7 +115,7 @@ function extractKeywords(title: string, description: string): string[] {
 
   // 해시태그 추출 (유용한 키워드)
   const hashtags = (text.match(/#([^\s#]+)/g) || [])
-    .map(h => h.replace('#', '').trim())
+    .map(h => h.replace('#', '').replace(/["""''.,:;!?]/g, '').trim())
     .filter(h => h.length >= 2 && h.length <= 20);
 
   // 한국어 명사/제품명 패턴 추출 (2글자 이상)

@@ -389,9 +389,9 @@ export default function AdminPage() {
     setSnsSelectedKeyword(kw);
     setSnsSearchLoading(true);
     try {
-      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(kw)}`);
+      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(kw)}&limit=5`);
       const json = await res.json();
-      setSnsSearchResults(json.data || []);
+      setSnsSearchResults(json.data?.productData || []);
     } catch {
       setSnsSearchResults([]);
     }
