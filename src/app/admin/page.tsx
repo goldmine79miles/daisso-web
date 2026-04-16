@@ -182,8 +182,8 @@ export default function AdminPage() {
   // 스크래핑 등록 폼
   const [scrapeRegItem, setScrapeRegItem] = useState<{ title: string; url: string; image: string; platform: string } | null>(null);
   const [quickSection, setQuickSection] = useState<'ranking' | 'recommend' | 'deal'>('deal');
-  const [scrapeRegForm, setScrapeRegForm] = useState<{ sale_price: string; original_price: string; discount_rate: string; section: string; category: string; review1: string; review2: string; review3: string }>(() => {
-    const empty = { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' };
+  const [scrapeRegForm, setScrapeRegForm] = useState<{ sale_price: string; original_price: string; discount_rate: string; section: string; category: string; review1: string; review2: string; review3: string; rating: string; review_count: string }>(() => {
+    const empty = { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '', rating: '', review_count: '' };
     if (typeof window === 'undefined') return empty;
     try {
       const saved = sessionStorage.getItem('scrapeRegForm_draft');
@@ -422,7 +422,7 @@ export default function AdminPage() {
     }
     const autoCategory = autoDetectCategory(title);
     setScrapeRegItem({ title, url, image, platform });
-    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: defaultSection, category: autoCategory, review1: '', review2: '', review3: '' });
+    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: defaultSection, category: autoCategory, review1: '', review2: '', review3: '', rating: '', review_count: '' });
     setMatchedProduct(null);
   }
 
@@ -561,6 +561,8 @@ export default function AdminPage() {
           sale_price: sp,
           original_price: op,
           discount_rate: dr,
+          rating: Number(scrapeRegForm.rating) || 0,
+          review_count: Number(scrapeRegForm.review_count) || 0,
           review_highlights: reviews.length > 0 ? reviews : undefined,
         }),
       });
@@ -1953,11 +1955,27 @@ export default function AdminPage() {
               </div>
             </div>
 
-            <div style={{ marginBottom: 16 }}>
+            <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>할인율 (자동계산)</label>
               <input type="number" placeholder="자동" value={scrapeRegForm.discount_rate}
                 onChange={e => setScrapeRegForm(f => ({ ...f, discount_rate: e.target.value }))}
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
+            </div>
+
+            {/* 별점 + 리뷰수 */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>⭐ 별점 (0~5)</label>
+                <input type="number" step="0.1" min="0" max="5" placeholder="예: 4.8" value={scrapeRegForm.rating}
+                  onChange={e => setScrapeRegForm(f => ({ ...f, rating: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>리뷰 수</label>
+                <input type="number" placeholder="예: 14956" value={scrapeRegForm.review_count}
+                  onChange={e => setScrapeRegForm(f => ({ ...f, review_count: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
+              </div>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>

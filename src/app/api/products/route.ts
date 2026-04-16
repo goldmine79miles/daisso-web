@@ -44,6 +44,7 @@ export async function POST(req: NextRequest) {
       title, image_url, affiliate_url, platform,
       category, section, sale_price, original_price,
       discount_rate, sort_order, review_highlights,
+      rating, review_count,
     } = body;
 
     if (!title || !affiliate_url) {
@@ -57,25 +58,31 @@ export async function POST(req: NextRequest) {
 
     const sql = getDb();
 
-    // review_highlights 컬럼 없으면 추가
+    // 컬럼 없으면 추가 (rating / review_count / review_highlights)
     try {
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_highlights TEXT`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(2,1) DEFAULT 0`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0`;
     } catch { /* 이미 있으면 무시 */ }
 
     try {
       const rows = await sql`
-        INSERT INTO products (title, image_url, affiliate_url, platform, category, section, sale_price, original_price, discount_rate, sort_order, review_highlights)
-        VALUES (${title}, ${image_url || null}, ${affiliate_url}, ${platform || 'coupang'}, ${category || 'all'}, ${section || 'recommend'}, ${sale_price || 0}, ${original_price || 0}, ${discount_rate || 0}, ${sort_order || 0}, ${reviewJson})
+        INSERT INTO products (title, image_url, affiliate_url, platform, category, section, sale_price, original_price, discount_rate, sort_order, review_highlights, rating, review_count)
+        VALUES (${title}, ${image_url || null}, ${affiliate_url}, ${platform || 'coupang'}, ${category || 'all'}, ${section || 'recommend'}, ${sale_price || 0}, ${original_price || 0}, ${discount_rate || 0}, ${sort_order || 0}, ${reviewJson}, ${rating || 0}, ${review_count || 0})
         RETURNING *
       `;
       return NextResponse.json({ data: rows[0] });
     } catch (e: unknown) {
       if (String(e).includes('does not exist')) {
         await initTables();
-        try { await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_highlights TEXT`; } catch { /* */ }
+        try {
+          await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_highlights TEXT`;
+          await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(2,1) DEFAULT 0`;
+          await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0`;
+        } catch { /* */ }
         const rows = await sql`
-          INSERT INTO products (title, image_url, affiliate_url, platform, category, section, sale_price, original_price, discount_rate, sort_order, review_highlights)
-          VALUES (${title}, ${image_url || null}, ${affiliate_url}, ${platform || 'coupang'}, ${category || 'all'}, ${section || 'recommend'}, ${sale_price || 0}, ${original_price || 0}, ${discount_rate || 0}, ${sort_order || 0}, ${reviewJson})
+          INSERT INTO products (title, image_url, affiliate_url, platform, category, section, sale_price, original_price, discount_rate, sort_order, review_highlights, rating, review_count)
+          VALUES (${title}, ${image_url || null}, ${affiliate_url}, ${platform || 'coupang'}, ${category || 'all'}, ${section || 'recommend'}, ${sale_price || 0}, ${original_price || 0}, ${discount_rate || 0}, ${sort_order || 0}, ${reviewJson}, ${rating || 0}, ${review_count || 0})
           RETURNING *
         `;
         return NextResponse.json({ data: rows[0] });
