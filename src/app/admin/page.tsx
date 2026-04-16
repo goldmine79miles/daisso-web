@@ -1191,20 +1191,30 @@ export default function AdminPage() {
                     <span style={{ fontSize: 10, color: C.muted, marginLeft: 8 }}>({scrapeResult.linkType})</span>
                   </p>
                   {scrapeResult.shoppingItems.length > 0 ? (
-                    <div style={{ borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
                       {scrapeResult.shoppingItems.map((item, i) => (
-                        <div key={i} style={{ display: 'flex', gap: 10, padding: '10px 14px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
-                          {item.image && <img src={item.image} alt="" style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover', flexShrink: 0 }} />}
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <p style={{ fontSize: 12, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{item.title}</p>
-                            {item.platform && (
-                              <span style={{ fontSize: 9, fontWeight: 600, color: '#fff', background: item.platform === 'coupang' ? C.coupang : item.platform === 'toss' ? C.toss : C.sub, padding: '1px 6px', borderRadius: 4, marginTop: 3, display: 'inline-block' }}>{item.platform}</span>
+                        <div key={i} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', cursor: 'pointer', position: 'relative' }}>
+                          <div style={{ width: '100%', aspectRatio: '1', background: C.bg, overflow: 'hidden' }}>
+                            {item.image ? (
+                              <img src={item.image} alt={item.title} referrerPolicy="no-referrer"
+                                onError={(e) => { (e.target as HTMLImageElement).src = '/logo-text-only.png'; }}
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            ) : (
+                              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📷</div>
                             )}
                           </div>
-                          <button onClick={() => addFromSearch({ productId: '', productName: item.title, productPrice: 0, productImage: item.image || '', productUrl: item.url, categoryName: '', originalPrice: 0, discountRate: 0 })} disabled={saving}
-                            style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: C.primary, color: '#fff', fontSize: 10, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                            등록
-                          </button>
+                          <div style={{ padding: '6px 8px' }}>
+                            <p style={{ fontSize: 10, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                              {item.platform && (
+                                <span style={{ fontSize: 8, fontWeight: 600, color: '#fff', background: item.platform === 'coupang' ? C.coupang : item.platform === 'naver' ? '#03C75A' : item.platform === 'toss' ? C.toss : C.sub, padding: '1px 5px', borderRadius: 3 }}>{item.platform}</span>
+                              )}
+                              <button onClick={() => addFromSearch({ productId: '', productName: item.title, productPrice: 0, productImage: item.image || '', productUrl: item.url, categoryName: '', originalPrice: 0, discountRate: 0 })} disabled={saving}
+                                style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: C.primary, color: '#fff', fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                                등록
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       ))}
                     </div>
