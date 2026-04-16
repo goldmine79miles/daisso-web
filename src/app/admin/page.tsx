@@ -179,6 +179,10 @@ export default function AdminPage() {
   const [editingInfId, setEditingInfId] = useState<number | null>(null);
   const [editInfForm, setEditInfForm] = useState({ name: '', inpock_url: '', profile_url: '', memo: '' });
 
+  // 스크래핑 등록 폼
+  const [scrapeRegItem, setScrapeRegItem] = useState<{ title: string; url: string; image: string; platform: string } | null>(null);
+  const [scrapeRegForm, setScrapeRegForm] = useState({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all' });
+
   // 대체 추천
   const [suggestProductId, setSuggestProductId] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
@@ -362,18 +366,25 @@ export default function AdminPage() {
   }
 
   // 인플루언서 스크래핑에서 등록 — 쿠팡이면 내 딥링크로 변환
-  async function addFromScrape(title: string, url: string, image: string, platform: string) {
+  // 스크래핑 등록 — 1단계: 폼 열기
+  function openScrapeReg(title: string, url: string, image: string, platform: string) {
     if (!url.includes('coupang.com')) {
       alert(`⚠️ 쿠팡 외 링크(${platform})는 자동 등록 불가해요.\n쿠팡에서 같은 상품을 검색해서 등록하세요.`);
       return;
     }
+    setScrapeRegItem({ title, url, image, platform });
+    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all' });
+  }
+
+  // 스크래핑 등록 — 2단계: 확정
+  async function confirmScrapeReg() {
+    if (!scrapeRegItem) return;
     setSaving(true);
     try {
-      // 쿠팡 딥링크 API로 내 제휴 링크 생성
       const dlRes = await fetch('/api/coupang/deeplink', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [url] }),
+        body: JSON.stringify({ urls: [scrapeRegItem.url] }),
       });
       const dlJson = await dlRes.json();
       const myLink = dlJson?.data?.[0]?.shortenUrl;
@@ -382,20 +393,27 @@ export default function AdminPage() {
         setSaving(false);
         return;
       }
+      const sp = Number(scrapeRegForm.sale_price) || 0;
+      const op = Number(scrapeRegForm.original_price) || sp;
+      const dr = Number(scrapeRegForm.discount_rate) || (op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0);
       await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          title,
-          image_url: image || null,
+          title: scrapeRegItem.title,
+          image_url: scrapeRegItem.image || null,
           affiliate_url: myLink,
           platform: 'coupang',
-          category: 'all',
-          section: 'recommend',
+          category: scrapeRegForm.category,
+          section: scrapeRegForm.section,
+          sale_price: sp,
+          original_price: op,
+          discount_rate: dr,
         }),
       });
       loadProducts();
-      alert(`✅ "${title.slice(0, 20)}..." 내 제휴링크로 등록 완료!`);
+      alert(`✅ "${scrapeRegItem.title.slice(0, 20)}..." 등록 완료!`);
+      setScrapeRegItem(null);
     } catch (e) {
       alert('등록 실패: ' + e);
     }
@@ -1365,7 +1383,7 @@ export default function AdminPage() {
                                             {item.platform && (
                                               <span style={{ fontSize: 8, fontWeight: 600, color: '#fff', background: item.platform === 'coupang' ? C.coupang : item.platform === 'naver' ? '#03C75A' : item.platform === 'toss' ? C.toss : C.sub, padding: '1px 5px', borderRadius: 3 }}>{item.platform}</span>
                                             )}
-                                            <button onClick={() => addFromScrape(item.title, item.url, item.image || '', item.platform || '')} disabled={saving}
+                                            <button onClick={() => openScrapeReg(item.title, item.url, item.image || '', item.platform || '')} disabled={saving}
                                               style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: C.primary, color: '#fff', fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                               등록
                                             </button>
@@ -1444,7 +1462,7 @@ export default function AdminPage() {
                               {item.platform && (
                                 <span style={{ fontSize: 8, fontWeight: 600, color: '#fff', background: item.platform === 'coupang' ? C.coupang : item.platform === 'naver' ? '#03C75A' : item.platform === 'toss' ? C.toss : C.sub, padding: '1px 5px', borderRadius: 3 }}>{item.platform}</span>
                               )}
-                              <button onClick={() => addFromScrape(item.title, item.url, item.image || '', item.platform || '')} disabled={saving}
+                              <button onClick={() => openScrapeReg(item.title, item.url, item.image || '', item.platform || '')} disabled={saving}
                                 style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: C.primary, color: '#fff', fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                 등록
                               </button>
@@ -1511,6 +1529,77 @@ export default function AdminPage() {
           </div>
         )}
       </div>
+
+      {/* ━━━ 스크래핑 등록 모달 ━━━ */}
+      {scrapeRegItem && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setScrapeRegItem(null)}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 440 }}
+            onClick={e => e.stopPropagation()}>
+            <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px' }}>상품 등록</h3>
+            <p style={{ fontSize: 13, color: C.sub, margin: '0 0 16px', lineHeight: 1.4 }}>{scrapeRegItem.title.slice(0, 60)}{scrapeRegItem.title.length > 60 ? '...' : ''}</p>
+
+            {scrapeRegItem.image && <img src={proxyImg(scrapeRegItem.image)} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, marginBottom: 16 }} />}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>판매가</label>
+                <input type="number" placeholder="예: 15900" value={scrapeRegForm.sale_price}
+                  onChange={e => setScrapeRegForm(f => ({ ...f, sale_price: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>원가 (선택)</label>
+                <input type="number" placeholder="예: 29900" value={scrapeRegForm.original_price}
+                  onChange={e => setScrapeRegForm(f => ({ ...f, original_price: e.target.value }))}
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>할인율 (자동계산)</label>
+              <input type="number" placeholder="자동" value={scrapeRegForm.discount_rate}
+                onChange={e => setScrapeRegForm(f => ({ ...f, discount_rate: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 4, display: 'block' }}>섹션</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  {SECTIONS.map(s => (
+                    <button key={s.id} onClick={() => setScrapeRegForm(f => ({ ...f, section: s.id }))}
+                      style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                        background: scrapeRegForm.section === s.id ? C.primary : C.border,
+                        color: scrapeRegForm.section === s.id ? '#fff' : C.sub }}>
+                      {s.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, marginBottom: 4, display: 'block' }}>카테고리</label>
+                <select value={scrapeRegForm.category}
+                  onChange={e => setScrapeRegForm(f => ({ ...f, category: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13 }}>
+                  {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setScrapeRegItem(null)}
+                style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: `1px solid ${C.border}`, background: '#fff', fontSize: 14, fontWeight: 600, color: C.sub, cursor: 'pointer' }}>
+                취소
+              </button>
+              <button onClick={confirmScrapeReg} disabled={saving}
+                style={{ flex: 2, padding: '12px 0', borderRadius: 12, border: 'none', background: C.primary, fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: saving ? 0.5 : 1 }}>
+                {saving ? '등록 중...' : '내 제휴링크로 등록'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ━━━ 수정 모달 ━━━ */}
       {editProduct && (
