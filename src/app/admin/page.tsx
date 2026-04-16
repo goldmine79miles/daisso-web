@@ -908,32 +908,25 @@ export default function AdminPage() {
                     try {
                       const gbRes = await fetch(`/api/coupang/goldbox?categoryId=${goldId}`);
                       const gbJson = await gbRes.json();
-                      const picked = (gbJson?.data?.productData || gbJson?.data || [])[0];
+                      // 골드박스: data가 직접 배열
+                      const list = Array.isArray(gbJson?.data) ? gbJson.data : (gbJson?.data?.productData || []);
+                      const picked = list[0];
                       if (!picked?.productUrl) { failed++; continue; }
-                      // 내 제휴링크로 변환
-                      const dlRes = await fetch('/api/coupang/deeplink', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ urls: [picked.productUrl] }),
-                      });
-                      const dlJson = await dlRes.json();
-                      const landingUrl = dlJson?.data?.[0]?.landingUrl || '';
-                      const myLink = dlJson?.data?.[0]?.shortenUrl;
-                      if (!myLink || !landingUrl.includes('lptag=AF6507576')) { failed++; continue; }
-                      const sp = Number(picked.discountPrice) || Number(picked.productPrice) || 0;
-                      const op = Number(picked.originalPrice) || Number(picked.productPrice) || sp;
-                      const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                      // 골드박스 productUrl은 이미 내 lptag 포함 — 검증만 하고 그대로 사용
+                      if (!picked.productUrl.includes('lptag=AF6507576')) { failed++; continue; }
+                      const sp = Number(picked.productPrice) || 0;
                       await fetch('/api/products', {
                         method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                           title: picked.productName,
                           image_url: picked.productImage || null,
-                          affiliate_url: myLink,
+                          affiliate_url: picked.productUrl,
                           platform: 'coupang',
                           category: siteCat,
                           section: 'recommend',
                           sale_price: sp,
-                          original_price: op,
-                          discount_rate: dr,
+                          original_price: sp,
+                          discount_rate: 0,
                         }),
                       });
                       success++;
@@ -954,34 +947,25 @@ export default function AdminPage() {
                   try {
                     const gbRes = await fetch(`/api/coupang/goldbox`);
                     const gbJson = await gbRes.json();
-                    const list = (gbJson?.data?.productData || gbJson?.data || []).slice(0, 10);
+                    const list = Array.isArray(gbJson?.data) ? gbJson.data : (gbJson?.data?.productData || []);
                     let success = 0, failed = 0;
-                    for (const picked of list) {
+                    for (const picked of list.slice(0, 15)) {
                       if (!picked?.productUrl) { failed++; continue; }
+                      if (!picked.productUrl.includes('lptag=AF6507576')) { failed++; continue; }
                       try {
-                        const dlRes = await fetch('/api/coupang/deeplink', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ urls: [picked.productUrl] }),
-                        });
-                        const dlJson = await dlRes.json();
-                        const landingUrl = dlJson?.data?.[0]?.landingUrl || '';
-                        const myLink = dlJson?.data?.[0]?.shortenUrl;
-                        if (!myLink || !landingUrl.includes('lptag=AF6507576')) { failed++; continue; }
-                        const sp = Number(picked.discountPrice) || Number(picked.productPrice) || 0;
-                        const op = Number(picked.originalPrice) || Number(picked.productPrice) || sp;
-                        const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                        const sp = Number(picked.productPrice) || 0;
                         await fetch('/api/products', {
                           method: 'POST', headers: { 'Content-Type': 'application/json' },
                           body: JSON.stringify({
                             title: picked.productName,
                             image_url: picked.productImage || null,
-                            affiliate_url: myLink,
+                            affiliate_url: picked.productUrl,
                             platform: 'coupang',
                             category: autoDetectCategory(picked.productName || ''),
                             section: 'ranking',
                             sale_price: sp,
-                            original_price: op,
-                            discount_rate: dr,
+                            original_price: sp,
+                            discount_rate: 0,
                           }),
                         });
                         success++;
