@@ -100,6 +100,8 @@ export default function AdminPage() {
   const [productsLoading, setProductsLoading] = useState(false);
   const [filterSection, setFilterSection] = useState('all');
   const [filterPlatform, setFilterPlatform] = useState('all');
+  const [healthChecking, setHealthChecking] = useState(false);
+  const [healthResult, setHealthResult] = useState<{ checked: number; issues: number; healthy: number; results: { id: number; title: string; issue: string; action: string; severity: string }[]; checkedAt: string } | null>(null);
 
   // 상품 등록
   const [form, setForm] = useState({
@@ -485,6 +487,24 @@ export default function AdminPage() {
                 <option value="all">전체 플랫폼</option>
                 {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
+              <button onClick={async () => {
+                  setHealthChecking(true); setHealthResult(null);
+                  try {
+                    const res = await fetch('/api/products/health-check', { method: 'POST' });
+                    const json = await res.json();
+                    setHealthResult(json.data);
+                    if (json.data?.issues > 0) {
+                      // 상품 목록 새로고침
+                      const r = await fetch('/api/products?active=all');
+                      const j = await r.json();
+                      setProducts(j.data || []);
+                    }
+                  } catch { setHealthResult(null); }
+                  setHealthChecking(false);
+                }}
+                style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: healthChecking ? C.bg : C.card, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+                {healthChecking ? '⏳ 체크 중...' : '🔍 상태 체크'}
+              </button>
               <button onClick={() => { setShowAddForm(v => !v); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
                 style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: showAddForm ? C.red : C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
                 {showAddForm ? '✕ 닫기' : '+ 상품 등록'}
@@ -618,6 +638,54 @@ export default function AdminPage() {
                 );
               })}
             </div>
+
+            {/* ━━━ 헬스체크 결과 ━━━ */}
+            {healthResult && (
+              <div style={{ margin: '0 16px 16px', background: C.card, borderRadius: 16, border: `1px solid ${healthResult.issues > 0 ? C.red : C.green}`, overflow: 'hidden' }}>
+                {/* 요약 헤더 */}
+                <div style={{ padding: '14px 20px', background: healthResult.issues > 0 ? `${C.red}08` : `${C.green}08`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: healthResult.issues > 0 ? C.red : C.green }}>
+                      {healthResult.issues > 0 ? `⚠️ ${healthResult.issues}개 문제 발견` : '✅ 모든 상품 정상'}
+                    </p>
+                    <p style={{ fontSize: 11, color: C.sub, margin: '4px 0 0' }}>
+                      {healthResult.checked}개 체크 · {healthResult.healthy}개 정상 · {new Date(healthResult.checkedAt).toLocaleString('ko-KR')}
+                    </p>
+                  </div>
+                  <button onClick={() => setHealthResult(null)} style={{ border: 'none', background: 'none', fontSize: 16, cursor: 'pointer', color: C.muted, padding: 4 }}>✕</button>
+                </div>
+                {/* 문제 목록 */}
+                {healthResult.results.length > 0 && (
+                  <div style={{ maxHeight: 300, overflowY: 'auto' }}>
+                    {healthResult.results.map((r, i) => (
+                      <div key={i} style={{ padding: '10px 20px', borderTop: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'center' }}>
+                        <span style={{ fontSize: 14, flexShrink: 0 }}>
+                          {r.severity === 'critical' ? '🔴' : r.severity === 'warning' ? '🟡' : '🔵'}
+                        </span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            [{r.id}] {r.title}
+                          </p>
+                          <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>{r.issue}</p>
+                        </div>
+                        <span style={{
+                          fontSize: 10, fontWeight: 600, padding: '3px 8px', borderRadius: 6, flexShrink: 0,
+                          background: r.action === '자동 OFF' ? `${C.red}12` : r.action.includes('제거') ? `${C.deal}12` : `${C.primary}12`,
+                          color: r.action === '자동 OFF' ? C.red : r.action.includes('제거') ? C.deal : C.primary,
+                        }}>
+                          {r.action}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {healthResult.issues === 0 && (
+                  <div style={{ padding: '16px 20px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 13, color: C.sub, margin: 0 }}>등록된 모든 상품이 정상이에요 👍</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* 상품 리스트 */}
             {productsLoading ? (
