@@ -1,28 +1,7 @@
 import Navbar from '@/components/Navbar';
 import CategoryBar from '@/components/CategoryBar';
-import ProductCard from '@/components/ProductCard';
 import Footer from '@/components/Footer';
-import { getHotDeals, products } from '@/data/products';
 import { getDbProducts, type DbProduct } from '@/lib/get-products';
-import type { Product } from '@/data/types';
-
-// DB 상품 → 기존 ProductCard용 형식 변환
-function toProduct(item: DbProduct, index: number): Product {
-  return {
-    id: `db-${item.id}`,
-    title: item.title,
-    description: '',
-    originalPrice: item.original_price || item.sale_price,
-    salePrice: item.sale_price,
-    discountPercent: item.discount_rate || 0,
-    imageUrl: item.image_url || '/logo-light.png',
-    category: (item.category || 'all') as Product['category'],
-    coupangUrl: item.affiliate_url,
-    rating: 0,
-    reviewCount: 0,
-    tags: index < 3 ? ['hot'] : [],
-  };
-}
 
 // DB 상품용 카드 (외부 링크로 이동)
 function DbProductCard({ item, rank }: { item: DbProduct; rank?: number }) {
@@ -88,8 +67,6 @@ export default async function HomePage() {
     getDbProducts('deal'),
   ]);
 
-  // 폴백: DB 상품 없으면 하드코딩 데이터
-  const hotDeals = getHotDeals();
   const hasDbRanking = rankingItems.length > 0;
   const hasDbRecommend = recommendItems.length > 0;
   const hasDbDeal = dealItems.length > 0;
@@ -106,23 +83,20 @@ export default async function HomePage() {
           <p className="mt-2 text-sm md:text-base opacity-90">카테고리별 최저가 상품도 한눈에 확인하세요</p>
         </section>
 
-        {/* 다있어 TOP 10 */}
-        <section className="mt-8 px-4">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">다들 이거 사고 있어요 <span className="text-red-500">TOP 7</span></h2>
-            {hasDbRanking && (
+        {/* 다들 이거 사고 있어요 TOP 7 */}
+        {hasDbRanking && (
+          <section className="mt-8 px-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">다들 이거 사고 있어요 <span className="text-red-500">TOP 7</span></h2>
               <span className="text-xs font-semibold text-red-500 flex items-center gap-1 animate-pulse">
                 <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> LIVE
               </span>
-            )}
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {hasDbRanking
-              ? rankingItems.map((item, i) => <DbProductCard key={item.id} item={item} rank={i + 1} />)
-              : hotDeals.map(p => <ProductCard key={p.id} product={p} />)
-            }
-          </div>
-        </section>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {rankingItems.map((item, i) => <DbProductCard key={item.id} item={item} rank={i + 1} />)}
+            </div>
+          </section>
+        )}
 
         {/* 득템 — 진짜 존나 싼 거 */}
         {hasDbDeal && (
@@ -137,16 +111,22 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* 다들 이거 사고 있어요 */}
-        <section className="mt-10 px-4">
-          <h2 className="text-xl font-bold mb-4">다있어 <span className="text-red-500">가성비</span> 추천</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {hasDbRecommend
-              ? recommendItems.map((item) => <DbProductCard key={item.id} item={item} />)
-              : products.map(p => <ProductCard key={p.id} product={p} />)
-            }
+        {/* 다있어 가성비 추천 */}
+        {hasDbRecommend && (
+          <section className="mt-10 px-4">
+            <h2 className="text-xl font-bold mb-4">다있어 <span className="text-red-500">가성비</span> 추천</h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {recommendItems.map((item) => <DbProductCard key={item.id} item={item} />)}
+            </div>
+          </section>
+        )}
+
+        {/* 빈 상태 — 모든 섹션 비어있을 때 */}
+        {!hasDbRanking && !hasDbRecommend && !hasDbDeal && (
+          <div className="text-center py-20 text-gray-400">
+            <p className="text-sm">상품을 준비 중이에요</p>
           </div>
-        </section>
+        )}
       </main>
       <Footer />
     </>
