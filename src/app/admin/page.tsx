@@ -4,6 +4,15 @@ import { useState, useEffect, useCallback } from 'react';
 
 const ADMIN_PASSWORD = 'star888!!!';
 
+// CDN 이미지 프록시 (CloudFront 차단 우회)
+function proxyImg(url?: string): string | undefined {
+  if (!url) return undefined;
+  if (url.includes('d13k46lqgoj3d6.cloudfront.net') || url.includes('image.inpock.co.kr')) {
+    return `/api/proxy-image?url=${encodeURIComponent(url)}`;
+  }
+  return url;
+}
+
 /* ─── 스타일 상수 ─────────────────────────── */
 const C = {
   bg: '#FAFBFC',
@@ -1239,7 +1248,7 @@ export default function AdminPage() {
                   {scrapeResult.shoppingItems.slice(0, 10).map((item, i) => (
                     <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: i < 9 ? `1px solid ${C.border}` : 'none' }}>
                       <div style={{ width: 32, height: 32, borderRadius: 4, background: C.card, overflow: 'hidden', flexShrink: 0 }}>
-                        {item.image ? <img src={item.image} alt="" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                        {item.image ? <img src={proxyImg(item.image)} alt="" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
                       </div>
                       <p style={{ fontSize: 11, margin: 0, color: C.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
                       {item.platform && <span style={{ fontSize: 8, color: '#fff', background: item.platform === 'coupang' ? C.coupang : C.sub, padding: '1px 4px', borderRadius: 3, flexShrink: 0 }}>{item.platform}</span>}
@@ -1343,7 +1352,7 @@ export default function AdminPage() {
                                       <div key={i} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', position: 'relative' }}>
                                         <div style={{ width: '100%', aspectRatio: '1', background: C.bg, overflow: 'hidden' }}>
                                           {item.image ? (
-                                            <img src={item.image} alt={item.title} referrerPolicy="no-referrer"
+                                            <img src={proxyImg(item.image)} alt={item.title} referrerPolicy="no-referrer"
                                               onError={(e) => { (e.target as HTMLImageElement).src = '/logo-text-only.png'; }}
                                               style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                           ) : (
@@ -1422,7 +1431,7 @@ export default function AdminPage() {
                         <div key={i} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', position: 'relative' }}>
                           <div style={{ width: '100%', aspectRatio: '1', background: C.bg, overflow: 'hidden' }}>
                             {item.image ? (
-                              <img src={item.image} alt={item.title} referrerPolicy="no-referrer"
+                              <img src={proxyImg(item.image)} alt={item.title} referrerPolicy="no-referrer"
                                 onError={(e) => { (e.target as HTMLImageElement).src = '/logo-text-only.png'; }}
                                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                             ) : (
