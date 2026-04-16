@@ -1827,23 +1827,49 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* 썸네일 URL 직접 붙여넣기 */}
+            {/* 썸네일 URL 붙여넣기 또는 드래그&드롭 */}
             <div style={{ marginBottom: 12 }}>
               <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                썸네일 URL (쿠팡 이미지 우클릭 → 이미지 주소 복사)
+                썸네일 — 쿠팡 이미지 드래그해서 드롭 or URL 붙여넣기
               </label>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-                {scrapeRegItem.image && (
-                  <img src={proxyImg(scrapeRegItem.image) || scrapeRegItem.image} alt="" style={{ width: 56, height: 56, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}`, flexShrink: 0 }} />
-                )}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}
+                onDrop={e => {
+                  e.preventDefault();
+                  const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+                  if (url) setScrapeRegItem(prev => prev ? { ...prev, image: url } : prev);
+                }}
+                onDragOver={e => e.preventDefault()}
+              >
+                <div style={{ width: 56, height: 56, borderRadius: 8, border: `2px dashed ${C.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: C.bg }}>
+                  {scrapeRegItem.image ? (
+                    <img src={proxyImg(scrapeRegItem.image) || scrapeRegItem.image} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <span style={{ fontSize: 9, color: C.muted, textAlign: 'center' }}>이미지<br/>드롭</span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={scrapeRegItem.image}
-                  placeholder="https://thumbnail.coupangcdn.com/..."
+                  placeholder="여기에 URL 붙여넣기 or 왼쪽으로 이미지 드래그"
                   onChange={e => setScrapeRegItem(prev => prev ? { ...prev, image: e.target.value } : prev)}
+                  onPaste={async (e) => {
+                    // 클립보드에 이미지 있으면 아무것도 안 함 (브라우저 기본)
+                    // 텍스트라면 기본 동작 (URL 붙여넣기)
+                    const items = e.clipboardData.items;
+                    for (const item of Array.from(items)) {
+                      if (item.type.startsWith('image/')) {
+                        e.preventDefault();
+                        alert('이미지 파일은 업로드 불가. 이미지 URL을 복사해서 붙여넣거나 드래그해주세요.');
+                        return;
+                      }
+                    }
+                  }}
                   style={{ flex: 1, padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12 }}
                 />
               </div>
+              <p style={{ fontSize: 10, color: C.muted, margin: '4px 0 0' }}>
+                우클릭 막혀도 이미지 **드래그** 하거나 F12 → Elements → img src 복사하면 돼요
+              </p>
             </div>
 
             {/* 매칭된 상품 정보 */}
