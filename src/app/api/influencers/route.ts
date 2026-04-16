@@ -26,13 +26,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '이름과 링크는 필수예요' }, { status: 400 });
     }
 
+    // https:// 자동 붙이기
+    let url = inpock_url.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+
     // 링크 타입 자동 감지
-    const linkType = detectLinkType(inpock_url);
+    const linkType = detectLinkType(url);
 
     const sql = getDb();
     const rows = await sql`
       INSERT INTO influencer_links (name, platform, profile_url, inpock_url, memo)
-      VALUES (${name.trim()}, ${platform || linkType}, ${profile_url || ''}, ${inpock_url.trim()}, ${memo || ''})
+      VALUES (${name.trim()}, ${platform || linkType}, ${profile_url || ''}, ${url}, ${memo || ''})
       RETURNING *
     `;
     return NextResponse.json({ data: rows[0] });
