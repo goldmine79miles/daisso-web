@@ -5,8 +5,10 @@ import { StarIcon } from '@/components/Icons';
 import Footer from '@/components/Footer';
 import ProductCard from '@/components/ProductCard';
 import { getProductById, getProductsByCategory, products } from '@/data/products';
+import { getDbProductById } from '@/lib/get-products';
 import { categories } from '@/data/categories';
 import { buildAffiliateLink } from '@/lib/coupang';
+import type { Product, CategorySlug } from '@/data/types';
 import type { Metadata } from 'next';
 
 type Props = { params: Promise<{ id: string }> };
@@ -101,9 +103,34 @@ export function generateStaticParams() {
   return products.map(p => ({ id: p.id }));
 }
 
+async function resolveProduct(id: string): Promise<Product | null> {
+  // db-47 형식 → DB 조회
+  if (id.startsWith('db-')) {
+    const dbId = Number(id.slice(3));
+    if (!Number.isFinite(dbId)) return null;
+    const d = await getDbProductById(dbId);
+    if (!d) return null;
+    return {
+      id: `db-${d.id}`,
+      title: d.title,
+      description: '',
+      originalPrice: d.original_price || d.sale_price,
+      salePrice: d.sale_price,
+      discountPercent: d.discount_rate || 0,
+      imageUrl: d.image_url || '/logo-light.png',
+      category: (d.category || 'all') as CategorySlug,
+      coupangUrl: d.affiliate_url,
+      rating: 0,
+      reviewCount: 0,
+      tags: [],
+    };
+  }
+  return getProductById(id) || null;
+}
+
 export default async function ProductPage({ params }: Props) {
   const { id } = await params;
-  const product = getProductById(id);
+  const product = await resolveProduct(id);
   if (!product) notFound();
 
   const category = categories.find(c => c.slug === product.category);

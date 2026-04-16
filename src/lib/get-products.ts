@@ -41,3 +41,16 @@ export async function getDbProducts(section?: string): Promise<DbProduct[]> {
     return [];
   }
 }
+
+/**
+ * DB에서 단일 상품 조회 (id: 숫자)
+ */
+export async function getDbProductById(id: number): Promise<DbProduct | null> {
+  try {
+    const sql = getDb();
+    const rows = await sql`SELECT * FROM products WHERE id = ${id} AND is_active = true LIMIT 1`;
+    return (rows[0] as DbProduct) || null;
+  } catch {
+    return null;
+  }
+}

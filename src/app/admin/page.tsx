@@ -942,9 +942,59 @@ export default function AdminPage() {
                   loadProducts();
                   alert(`✅ 완료 — 성공 ${success}개 / 실패 ${failed}개`);
                 }}
-                style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+                style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 8 }}
               >
-                카테고리별 골드박스 자동 채우기 (9개)
+                추천 섹션에 자동 채우기 (9개)
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm('골드박스 인기상품을 랭킹 섹션에 7개 자동 등록합니다. 진행할까요?')) return;
+                  try {
+                    const gbRes = await fetch(`/api/coupang/goldbox`);
+                    const gbJson = await gbRes.json();
+                    const list = (gbJson?.data?.productData || gbJson?.data || []).slice(0, 10);
+                    let success = 0, failed = 0;
+                    for (const picked of list) {
+                      if (!picked?.productUrl) { failed++; continue; }
+                      try {
+                        const dlRes = await fetch('/api/coupang/deeplink', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ urls: [picked.productUrl] }),
+                        });
+                        const dlJson = await dlRes.json();
+                        const landingUrl = dlJson?.data?.[0]?.landingUrl || '';
+                        const myLink = dlJson?.data?.[0]?.shortenUrl;
+                        if (!myLink || !landingUrl.includes('lptag=AF6507576')) { failed++; continue; }
+                        const sp = Number(picked.discountPrice) || Number(picked.productPrice) || 0;
+                        const op = Number(picked.originalPrice) || Number(picked.productPrice) || sp;
+                        const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                        await fetch('/api/products', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            title: picked.productName,
+                            image_url: picked.productImage || null,
+                            affiliate_url: myLink,
+                            platform: 'coupang',
+                            category: autoDetectCategory(picked.productName || ''),
+                            section: 'ranking',
+                            sale_price: sp,
+                            original_price: op,
+                            discount_rate: dr,
+                          }),
+                        });
+                        success++;
+                        if (success >= 7) break;
+                      } catch { failed++; }
+                    }
+                    loadProducts();
+                    alert(`✅ 랭킹 채우기 완료 — 성공 ${success}개 / 실패 ${failed}개`);
+                  } catch {
+                    alert('골드박스 조회 실패');
+                  }
+                }}
+                style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.deal, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
+              >
+                랭킹 섹션에 자동 채우기 (TOP 7)
               </button>
             </div>
 
