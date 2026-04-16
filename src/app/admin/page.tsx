@@ -946,26 +946,26 @@ export default function AdminPage() {
                 onClick={async () => {
                   if (!confirm('골드박스에서 카테고리별 1개씩 추천 섹션에 자동 등록합니다. 진행할까요?')) return;
                   const CATEGORY_MAP = [
-                    { goldId: 1013, siteCat: 'kitchen' },
-                    { goldId: 1014, siteCat: 'living' },
-                    { goldId: 1012, siteCat: 'food' },
-                    { goldId: 1016, siteCat: 'electronics' },
-                    { goldId: 1010, siteCat: 'beauty' },
-                    { goldId: 1011, siteCat: 'baby' },
-                    { goldId: 1017, siteCat: 'sports' },
-                    { goldId: 1024, siteCat: 'pet' },
-                    { goldId: 1015, siteCat: 'interior' },
+                    { goldId: 1014, siteCat: 'living',      offset: 0 },
+                    { goldId: 1013, siteCat: 'kitchen',     offset: 0 },
+                    { goldId: 1015, siteCat: 'interior',    offset: 0 },
+                    { goldId: 1015, siteCat: 'furniture',   offset: 1 },
+                    { goldId: 1012, siteCat: 'food',        offset: 0 },
+                    { goldId: 1016, siteCat: 'electronics', offset: 0 },
+                    { goldId: 1001, siteCat: 'fashion',     offset: 0 },
+                    { goldId: 1010, siteCat: 'beauty',      offset: 0 },
+                    { goldId: 1011, siteCat: 'baby',        offset: 0 },
+                    { goldId: 1017, siteCat: 'sports',      offset: 0 },
+                    { goldId: 1024, siteCat: 'pet',         offset: 0 },
                   ];
                   let success = 0, failed = 0;
-                  for (const { goldId, siteCat } of CATEGORY_MAP) {
+                  for (const { goldId, siteCat, offset } of CATEGORY_MAP) {
                     try {
                       const gbRes = await fetch(`/api/coupang/goldbox?categoryId=${goldId}`);
                       const gbJson = await gbRes.json();
-                      // 골드박스: data가 직접 배열
                       const list = Array.isArray(gbJson?.data) ? gbJson.data : (gbJson?.data?.productData || []);
-                      const picked = list[0];
+                      const picked = list[offset];
                       if (!picked?.productUrl) { failed++; continue; }
-                      // 골드박스 productUrl은 이미 내 lptag 포함 — 검증만 하고 그대로 사용
                       if (!picked.productUrl.includes('lptag=AF6507576')) { failed++; continue; }
                       const sp = Number(picked.productPrice) || 0;
                       await fetch('/api/products', {
@@ -992,7 +992,7 @@ export default function AdminPage() {
                 }}
                 style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 8 }}
               >
-                추천 섹션에 자동 채우기 (9개)
+                추천 섹션에 자동 채우기 (11개)
               </button>
               <button
                 onClick={async () => {
