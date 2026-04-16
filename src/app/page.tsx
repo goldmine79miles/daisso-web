@@ -98,25 +98,22 @@ export default async function HomePage() {
           </section>
         )}
 
-        {/* 득템 — 진짜 존나 싼 거 */}
-        {hasDbDeal && (
-          <section className="mt-10 px-4">
-            <div className="flex items-center gap-2 mb-4">
-              <span className="text-xl">🔥</span>
-              <h2 className="text-xl font-bold">오늘의 <span className="text-red-500">득템</span></h2>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {dealItems.map((item) => <DbProductCard key={item.id} item={item} />)}
-            </div>
-          </section>
-        )}
-
         {/* 다있어 가성비 추천 */}
         {hasDbRecommend && (
           <section className="mt-10 px-4">
             <h2 className="text-xl font-bold mb-4">다있어 <span className="text-red-500">가성비</span> 추천</h2>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               {recommendItems.map((item) => <DbProductCard key={item.id} item={item} />)}
+            </div>
+          </section>
+        )}
+
+        {/* 득템 — 맨 밑 */}
+        {hasDbDeal && (
+          <section className="mt-10 px-4">
+            <h2 className="text-xl font-bold mb-4">오늘의 <span className="text-red-500">득템</span></h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {dealItems.map((item) => <DbProductCard key={item.id} item={item} />)}
             </div>
           </section>
         )}

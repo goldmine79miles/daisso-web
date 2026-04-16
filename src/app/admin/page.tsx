@@ -522,6 +522,23 @@ export default function AdminPage() {
         return;
       }
 
+      // 이미지가 없으면 파트너스 검색 API로 자동 조회
+      let imageUrl = scrapeRegItem.image || '';
+      if (!imageUrl && scrapeRegItem.title) {
+        try {
+          const searchRes = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(scrapeRegItem.title)}&limit=5`);
+          const searchJson = await searchRes.json();
+          const items = searchJson?.data?.productData || [];
+          // URL에서 productId 추출 후 매칭
+          const m = scrapeRegItem.url.match(/\/vp\/products\/(\d+)|pageKey=(\d+)/);
+          const productId = m ? (m[1] || m[2]) : null;
+          const matched = productId
+            ? items.find((p: { productId: number | string }) => String(p.productId) === productId)
+            : items[0];
+          if (matched?.productImage) imageUrl = matched.productImage;
+        } catch { /* 이미지 없어도 등록 진행 */ }
+      }
+
       const sp = Number(scrapeRegForm.sale_price) || 0;
       const op = Number(scrapeRegForm.original_price) || sp;
       const dr = Number(scrapeRegForm.discount_rate) || (op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0);
@@ -531,7 +548,7 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           title: scrapeRegItem.title,
-          image_url: scrapeRegItem.image || null,
+          image_url: imageUrl || null,
           affiliate_url: myLink,
           platform: 'coupang',
           category: scrapeRegForm.category,
