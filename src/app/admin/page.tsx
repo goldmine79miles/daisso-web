@@ -181,7 +181,20 @@ export default function AdminPage() {
 
   // 스크래핑 등록 폼
   const [scrapeRegItem, setScrapeRegItem] = useState<{ title: string; url: string; image: string; platform: string } | null>(null);
-  const [scrapeRegForm, setScrapeRegForm] = useState({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' });
+  const [scrapeRegForm, setScrapeRegForm] = useState(() => {
+    if (typeof window === 'undefined') return { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' };
+    try {
+      const saved = sessionStorage.getItem('scrapeRegForm_draft');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' };
+  });
+  // 폼 변경 시 sessionStorage 자동저장 (창 전환 시 유지)
+  useEffect(() => {
+    if (scrapeRegItem) {
+      try { sessionStorage.setItem('scrapeRegForm_draft', JSON.stringify(scrapeRegForm)); } catch {}
+    }
+  }, [scrapeRegForm, scrapeRegItem]);
   const [matchedProduct, setMatchedProduct] = useState<{ name: string; image: string; url: string; price: number; originalPrice: number; discount: number } | null>(null);
   const [resolvedCoupangUrl, setResolvedCoupangUrl] = useState<string | null>(null);
   const [resolving, setResolving] = useState(false);
@@ -457,17 +470,24 @@ export default function AdminPage() {
     if (!scrapeRegItem) return;
     setSaving(true);
     try {
-      const dlRes = await fetch('/api/coupang/deeplink', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [scrapeRegItem.url] }),
-      });
-      const dlJson = await dlRes.json();
-      const myLink = dlJson?.data?.[0]?.shortenUrl;
-      if (!myLink) {
-        alert('딥링크 변환 실패. 쿠팡 검색 탭에서 직접 등록해주세요.');
-        setSaving(false);
-        return;
+      // 이미 내 제휴 링크(link.coupang.com/a/)면 딥링크 변환 스킵
+      let myLink = '';
+      if (scrapeRegItem.url.startsWith('https://link.coupang.com/a/')) {
+        myLink = scrapeRegItem.url;
+      } else {
+        const dlRes = await fetch('/api/coupang/deeplink', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: [scrapeRegItem.url] }),
+        });
+        const dlJson = await dlRes.json();
+        myLink = dlJson?.data?.[0]?.shortenUrl || '';
+        if (!myLink) {
+          const errMsg = dlJson?.rMessage || dlJson?.error || JSON.stringify(dlJson).slice(0, 200);
+          alert(`딥링크 변환 실패\n\n응답: ${errMsg}\n\nURL: ${scrapeRegItem.url.slice(0, 100)}`);
+          setSaving(false);
+          return;
+        }
       }
 
       // ── 내 어필리에이트 링크 검증 ──
@@ -513,6 +533,7 @@ export default function AdminPage() {
       loadProducts();
       alert(`✅ "${scrapeRegItem.title.slice(0, 20)}..." 등록 완료!`);
       setScrapeRegItem(null);
+      try { sessionStorage.removeItem('scrapeRegForm_draft'); } catch {}
     } catch (e) {
       alert('등록 실패: ' + e);
     }
