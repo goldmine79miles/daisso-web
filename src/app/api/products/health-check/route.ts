@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { searchProducts } from '@/lib/coupang-api';
 
 interface HealthIssue {
   id: number;
@@ -10,14 +11,10 @@ interface HealthIssue {
 }
 
 /**
- * POST /api/products/health-check — 수동 체크 (어드민 버튼)
- * GET  /api/products/health-check — 자동 체크 (Vercel Cron)
- *
- * 체크 항목:
- * 1. 상품 URL 404/410 → 상품 내려감 (자동 OFF)
- * 2. 품절 리다이렉트 → 품절 (자동 OFF)
- * 3. 이미지 URL 깨짐 → 이미지 제거
- * 4. Slack 웹훅 알림 (문제 발견 시)
+ * 헬스체크 방식:
+ * - 쿠팡 상품 → 쿠팡 API로 상품명 재검색, 결과 없으면 내려간 것
+ * - 이미지 → HEAD 요청으로 깨졌는지 확인 (이미지 CDN은 봇 차단 안 함)
+ * - URL 직접 접속 X (봇 차단 + 제휴 계정 위험)
  */
 
 async function runHealthCheck() {
@@ -31,62 +28,36 @@ async function runHealthCheck() {
   for (const p of products) {
     checked++;
 
-    // 1. 상품 URL 체크
-    if (p.affiliate_url) {
+    // 1. 쿠팡 상품 → API로 존재 여부 체크
+    if (p.platform === 'coupang' && p.title) {
       try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 6000);
-        const res = await fetch(p.affiliate_url, {
-          method: 'HEAD',
-          signal: controller.signal,
-          redirect: 'follow',
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DaissoBot/1.0)' },
-        });
-        clearTimeout(timeout);
+        // 상품명에서 핵심 키워드 2~3개 추출
+        const keyword = extractSearchKeyword(p.title);
+        if (keyword) {
+          const searchResult = await searchProducts(keyword, 5);
+          const items = searchResult?.data?.productData || [];
 
-        // 404, 410 → 상품 내려감
-        if (res.status === 404 || res.status === 410) {
-          await sql`UPDATE products SET is_active = false, updated_at = NOW() WHERE id = ${p.id}`;
-          results.push({ id: p.id, title: p.title, issue: `상품 삭제됨 (${res.status})`, action: '자동 OFF', severity: 'critical' });
-          issues++;
-          continue;
-        }
-
-        // 403 → 쿠팡 등 봇 차단, 정상일 수 있으므로 무시
-        if (res.status === 403) {
-          // 봇 차단은 일반적, 건너뜀
-          continue;
-        }
-
-        // 기타 4xx/5xx (500, 502, 503 등)
-        if (res.status >= 400) {
-          results.push({ id: p.id, title: p.title, issue: `URL 오류 (${res.status})`, action: '유지 (확인 필요)', severity: 'warning' });
-          continue;
-        }
-
-        // 쿠팡 품절/삭제 리다이렉트
-        const finalUrl = res.url || '';
-        if (finalUrl.includes('ProductNotFound') || finalUrl.includes('soldout')) {
-          await sql`UPDATE products SET is_active = false, updated_at = NOW() WHERE id = ${p.id}`;
-          results.push({ id: p.id, title: p.title, issue: '품절/삭제 페이지로 이동', action: '자동 OFF', severity: 'critical' });
-          issues++;
-          continue;
-        }
-
-        // 에러 페이지 리다이렉트 (상품 내려간 경우)
-        if (finalUrl.includes('/error') || finalUrl.includes('pagenotfound') || finalUrl.includes('not-found')) {
-          await sql`UPDATE products SET is_active = false, updated_at = NOW() WHERE id = ${p.id}`;
-          results.push({ id: p.id, title: p.title, issue: '상품 페이지 없음', action: '자동 OFF', severity: 'critical' });
-          issues++;
-          continue;
+          if (items.length === 0) {
+            // 검색 결과 0개 → 상품 내려갔을 가능성 높음
+            // 바로 OFF 하지 않고 경고만 (키워드 매칭 실패일 수도 있으므로)
+            results.push({
+              id: p.id, title: p.title,
+              issue: '쿠팡 검색 결과 없음 (내려갔을 수 있음)',
+              action: '확인 필요', severity: 'warning',
+            });
+            issues++;
+          }
+          // 검색 결과 있으면 정상 → 패스
         }
       } catch {
-        // 타임아웃/네트워크 에러 → 유지 (일시적일 수 있음)
-        results.push({ id: p.id, title: p.title, issue: 'URL 접속 불가 (일시적일 수 있음)', action: '유지', severity: 'warning' });
+        // API 에러 → 스킵 (일시적일 수 있음)
       }
+
+      // rate limit 방지 (쿠팡 API)
+      await new Promise(r => setTimeout(r, 500));
     }
 
-    // 2. 이미지 URL 체크
+    // 2. 이미지 URL 체크 (CDN은 봇 차단 안 하므로 안전)
     if (p.image_url) {
       try {
         const controller = new AbortController();
@@ -109,9 +80,6 @@ async function runHealthCheck() {
         issues++;
       }
     }
-
-    // rate limit 방지
-    await new Promise(r => setTimeout(r, 200));
   }
 
   const report = {
@@ -130,6 +98,31 @@ async function runHealthCheck() {
   return report;
 }
 
+/** 상품명에서 검색용 핵심 키워드 추출 */
+function extractSearchKeyword(title: string): string {
+  const cleaned = title
+    .replace(/\([^)]*\)/g, '')       // 괄호 내용 제거
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/[0-9]+[개팩세트매장입봉]+/g, '') // 수량
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  // 한국어 단어 추출
+  const words = (cleaned.match(/[가-힣]{2,8}/g) || [])
+    .filter(w => !STOP.has(w));
+
+  // 영어 브랜드명
+  const eng = (cleaned.match(/[A-Za-z]{2,15}/g) || [])
+    .filter(w => !ENG_STOP.has(w.toLowerCase()));
+
+  // 상위 2~3개 조합
+  const parts = [...words.slice(0, 2), ...eng.slice(0, 1)];
+  return parts.join(' ').trim();
+}
+
+const STOP = new Set(['무료', '배송', '할인', '특가', '세일', '한정', '인기', '추천', '최저가', '국내', '정품', '로켓프레시', '로켓배송']);
+const ENG_STOP = new Set(['the', 'and', 'for', 'with', 'free', 'new', 'hot', 'best', 'sale', 'set', 'pack', 'box', 'USB', 'LED']);
+
 /** Slack 웹훅으로 알림 전송 */
 async function sendSlackAlert(report: {
   checked: number;
@@ -139,7 +132,7 @@ async function sendSlackAlert(report: {
   checkedAt: string;
 }) {
   const webhookUrl = process.env.SLACK_WEBHOOK_URL;
-  if (!webhookUrl) return; // 설정 안 되어있으면 스킵
+  if (!webhookUrl) return;
 
   const critical = report.results.filter(r => r.severity === 'critical');
   const warnings = report.results.filter(r => r.severity === 'warning');
@@ -188,7 +181,6 @@ async function sendSlackAlert(report: {
       body: JSON.stringify({ blocks }),
     });
   } catch {
-    // Slack 실패해도 헬스체크 자체는 성공으로
     console.error('Slack 알림 전송 실패');
   }
 }
@@ -216,11 +208,8 @@ export async function POST() {
 
 // GET — 자동 체크 (Vercel Cron)
 export async function GET(req: Request) {
-  // Cron 인증 (Vercel이 자동 주입하는 헤더)
   const authHeader = req.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;
-
-  // Cron 시크릿 설정되어있으면 검증
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
