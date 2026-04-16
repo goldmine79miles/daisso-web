@@ -1671,10 +1671,8 @@ export default function AdminPage() {
 
       {/* ━━━ 스크래핑 등록 모달 ━━━ */}
       {scrapeRegItem && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-          onClick={() => setScrapeRegItem(null)}>
-          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 440 }}
-            onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 440 }}>
             <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px' }}>상품 등록</h3>
             <p style={{ fontSize: 13, color: C.sub, margin: '0 0 16px', lineHeight: 1.4 }}>{scrapeRegItem.title.slice(0, 60)}{scrapeRegItem.title.length > 60 ? '...' : ''}</p>
 
