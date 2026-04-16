@@ -73,7 +73,8 @@ export async function POST(req: NextRequest) {
         totalFound: items.length,
         shoppingItems: withPlatform,
         allItems: items.slice(0, 30),
-        debug: { withImage, withoutImage: withPlatform.length - withImage },
+        debug: { withImage, withoutImage: withPlatform.length - withImage, rawBlocks: items.length > 0 ? undefined : 'no items found' },
+        _rawDebug: linkType === 'inpock' ? (() => { try { const nd = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i); if (!nd) return 'no __NEXT_DATA__'; const j = JSON.parse(nd[1]); const bs = j?.props?.pageProps?.blocks || []; return bs.slice(0, 2).map((b: Record<string, unknown>) => ({ keys: Object.keys(b), type: b.block_type || b.type, linkSample: ((b.links || b.items) as Record<string, unknown>[] | undefined)?.[0] ? Object.keys(((b.links || b.items) as Record<string, unknown>[])[0]) : null, linkImageFields: ((b.links || b.items) as Record<string, unknown>[] | undefined)?.[0] ? Object.fromEntries(Object.entries(((b.links || b.items) as Record<string, unknown>[])[0]).filter(([k]) => /image|img|thumb|photo|og|pic/i.test(k))) : null })); } catch(e) { return String(e); } })() : undefined,
       },
     });
   } catch (e) {
@@ -103,6 +104,18 @@ function scrapeInpock(html: string): ScrapedItem[] {
       const json = JSON.parse(nextDataMatch[1]);
       const pageProps = json?.props?.pageProps || {};
       const blocks = pageProps.blocks || [];
+
+      // 디버그: 첫 번째 블록과 링크의 raw 키 수집
+      const rawDebug: unknown[] = [];
+      for (const block of blocks.slice(0, 3)) {
+        const sampleLink = (block.links || block.items || [])[0];
+        rawDebug.push({
+          blockKeys: Object.keys(block),
+          blockType: block.block_type || block.type,
+          sampleLinkKeys: sampleLink ? Object.keys(sampleLink) : null,
+          sampleLinkRaw: sampleLink ? { title: sampleLink.title, url: sampleLink.url?.slice(0, 50), image: sampleLink.image, thumbnail: sampleLink.thumbnail, img: sampleLink.img, imageUrl: sampleLink.imageUrl, photo: sampleLink.photo, og_image: sampleLink.og_image, link_image: sampleLink.link_image } : null,
+        });
+      }
 
       // 이미지 필드를 유연하게 찾는 헬퍼
       function findImage(obj: Record<string, unknown>): string | undefined {
