@@ -64,12 +64,16 @@ export async function POST(req: NextRequest) {
       platform: detectPlatform(item.url),
     }));
 
+    // 디버그: 이미지 있는/없는 비율
+    const withImage = withPlatform.filter(i => i.image).length;
+
     return NextResponse.json({
       data: {
         linkType,
         totalFound: items.length,
         shoppingItems: withPlatform,
-        allItems: items.slice(0, 30), // 전체도 보여줌 (최대 30개)
+        allItems: items.slice(0, 30),
+        debug: { withImage, withoutImage: withPlatform.length - withImage },
       },
     });
   } catch (e) {
@@ -97,45 +101,52 @@ function scrapeInpock(html: string): ScrapedItem[] {
   if (nextDataMatch) {
     try {
       const json = JSON.parse(nextDataMatch[1]);
-      const blocks = json?.props?.pageProps?.blocks || [];
+      const pageProps = json?.props?.pageProps || {};
+      const blocks = pageProps.blocks || [];
+
+      // 이미지 필드를 유연하게 찾는 헬퍼
+      function findImage(obj: Record<string, unknown>): string | undefined {
+        // 가능한 이미지 필드명 모두 체크
+        const candidates = [obj.image, obj.thumbnail, obj.thumbnailUrl, obj.imageUrl, obj.img, obj.img_url, obj.ogImage, obj.photo];
+        for (const c of candidates) {
+          if (typeof c === 'string' && c.length > 2) {
+            return c.startsWith('http') ? c : INPOCK_CDN + c;
+          }
+        }
+        // 중첩된 이미지 객체 (image: { url: '...' })
+        if (obj.image && typeof obj.image === 'object' && (obj.image as Record<string, unknown>).url) {
+          const u = (obj.image as Record<string, unknown>).url as string;
+          return u.startsWith('http') ? u : INPOCK_CDN + u;
+        }
+        return undefined;
+      }
 
       for (const block of blocks) {
         // collection 블록 안의 링크들
-        const links = block.links || [];
+        const links = block.links || block.items || [];
         for (const link of links) {
           if (!link.url || !link.title) continue;
           if (link.url.includes('inpock.co.kr') || link.url.includes('inpk.kr')) continue;
           if (seen.has(link.url)) continue;
           seen.add(link.url);
 
-          // 이미지 URL 처리 (상대경로면 CDN 붙이기)
-          let image: string | undefined;
-          if (link.image) {
-            image = link.image.startsWith('http') ? link.image : INPOCK_CDN + link.image;
-          }
-
           items.push({
             title: link.title,
             url: link.url,
-            image,
+            image: findImage(link),
           });
         }
 
         // 단일 링크 블록
-        if (block.block_type === 'link' && block.url && block.title) {
+        if ((block.block_type === 'link' || block.type === 'link') && block.url && block.title) {
           if (block.url.includes('inpock.co.kr') || block.url.includes('inpk.kr')) continue;
           if (seen.has(block.url)) continue;
           seen.add(block.url);
 
-          let image: string | undefined;
-          if (block.image) {
-            image = block.image.startsWith('http') ? block.image : INPOCK_CDN + block.image;
-          }
-
           items.push({
             title: block.title,
             url: block.url,
-            image,
+            image: findImage(block),
           });
         }
       }
