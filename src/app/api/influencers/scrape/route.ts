@@ -85,43 +85,83 @@ function detectType(url: string): string {
   return 'generic';
 }
 
-/** 인포크 스크래핑 — Next.js SPA, <a> 안에 <h3>제품명</h3> + <img alt="제품명"> 구조 */
+/** 인포크 스크래핑 — __NEXT_DATA__ JSON에서 블록/링크 데이터 직접 파싱 */
 function scrapeInpock(html: string): ScrapedItem[] {
   const items: ScrapedItem[] = [];
   const seen = new Set<string>();
 
-  // 인포크 구조: <a href="외부링크" ... class="css-..."><div>...<img alt="제품명"/>...</div><div><h3>제품명</h3></div></a>
-  const linkPattern = /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
-  let match;
+  const INPOCK_CDN = 'https://d13k46lqgoj3d6.cloudfront.net/';
 
-  while ((match = linkPattern.exec(html)) !== null) {
-    const href = match[1];
-    const inner = match[2];
+  // __NEXT_DATA__ JSON 추출
+  const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
+  if (nextDataMatch) {
+    try {
+      const json = JSON.parse(nextDataMatch[1]);
+      const blocks = json?.props?.pageProps?.blocks || [];
 
-    // 인포크 내부 링크 스킵
-    if (href.includes('inpock.co.kr') || href.includes('inpk.kr')) continue;
+      for (const block of blocks) {
+        // collection 블록 안의 링크들
+        const links = block.links || [];
+        for (const link of links) {
+          if (!link.url || !link.title) continue;
+          if (link.url.includes('inpock.co.kr') || link.url.includes('inpk.kr')) continue;
+          if (seen.has(link.url)) continue;
+          seen.add(link.url);
 
-    // 중복 URL 스킵
-    if (seen.has(href)) continue;
-    seen.add(href);
+          // 이미지 URL 처리 (상대경로면 CDN 붙이기)
+          let image: string | undefined;
+          if (link.image) {
+            image = link.image.startsWith('http') ? link.image : INPOCK_CDN + link.image;
+          }
 
-    // 제목 추출 우선순위: <h3> > <img alt> > 텍스트
-    const h3Match = inner.match(/<h3[^>]*>([^<]{2,80})<\/h3>/i);
-    const altMatch = inner.match(/<img[^>]*alt=["']([^"']{2,80})["']/i);
-    const imgMatch = inner.match(/<img[^>]*src=["'](https?:\/\/[^"']+)["']/i);
+          items.push({
+            title: link.title,
+            url: link.url,
+            image,
+          });
+        }
 
-    const title = h3Match
-      ? decodeEntities(h3Match[1].trim())
-      : altMatch
-        ? decodeEntities(altMatch[1].trim())
-        : inner.replace(/<[^>]+>/g, '').trim().slice(0, 80);
+        // 단일 링크 블록
+        if (block.block_type === 'link' && block.url && block.title) {
+          if (block.url.includes('inpock.co.kr') || block.url.includes('inpk.kr')) continue;
+          if (seen.has(block.url)) continue;
+          seen.add(block.url);
 
-    if (title.length >= 2) {
-      items.push({
-        title,
-        url: href,
-        image: imgMatch?.[1] || undefined,
-      });
+          let image: string | undefined;
+          if (block.image) {
+            image = block.image.startsWith('http') ? block.image : INPOCK_CDN + block.image;
+          }
+
+          items.push({
+            title: block.title,
+            url: block.url,
+            image,
+          });
+        }
+      }
+    } catch {
+      // JSON 파싱 실패 시 HTML 폴백
+    }
+  }
+
+  // JSON에서 못 찾으면 HTML 폴백
+  if (items.length === 0) {
+    const linkPattern = /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+    let match;
+    while ((match = linkPattern.exec(html)) !== null) {
+      const href = match[1];
+      const inner = match[2];
+      if (href.includes('inpock.co.kr') || href.includes('inpk.kr')) continue;
+      if (seen.has(href)) continue;
+      seen.add(href);
+
+      const h3Match = inner.match(/<h3[^>]*>([^<]{2,80})<\/h3>/i);
+      const altMatch = inner.match(/<img[^>]*alt=["']([^"']{2,80})["']/i);
+      const title = h3Match ? decodeEntities(h3Match[1].trim()) : altMatch ? decodeEntities(altMatch[1].trim()) : inner.replace(/<[^>]+>/g, '').trim().slice(0, 80);
+
+      if (title.length >= 2) {
+        items.push({ title, url: href });
+      }
     }
   }
 
