@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchProducts } from '@/lib/coupang-api';
 
+export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
+
 /**
  * POST /api/coupang/product-info
  * 쿠팡 링크(딥링크/인플루언서/직접) → 실제 상품 페이지의 가격/이미지/제목 추출
@@ -19,13 +22,16 @@ export async function POST(req: NextRequest) {
 
     // ─── title 제공 시: 파트너스 검색 API 경로 (신뢰도 높음) ───
     console.log('[product-info] url=', url, 'title=', title, 'productId=', productId);
-    if (title && title.trim()) {
-      const match = await findByPartnersSearch(title.trim(), productId);
-      console.log('[product-info] partners search match:', match ? 'FOUND' : 'NULL');
-      if (match) {
-        return NextResponse.json({ data: match, via: 'partners-search' });
+    if (title && typeof title === 'string' && title.trim().length > 0) {
+      try {
+        const match = await findByPartnersSearch(title.trim(), productId);
+        console.log('[product-info] partners search match:', match ? 'FOUND' : 'NULL', match);
+        if (match) {
+          return NextResponse.json({ data: match, via: 'partners-search' });
+        }
+      } catch (e) {
+        console.error('[product-info] partners search threw:', e);
       }
-      // 검색 실패 시 HTML 스크래핑으로 fallback
     }
 
     // ─── HTML 스크래핑 경로 (쿠팡이 차단하면 빈값 반환) ───
