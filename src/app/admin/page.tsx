@@ -485,9 +485,9 @@ export default function AdminPage() {
                 <option value="all">전체 플랫폼</option>
                 {PLATFORMS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
-              <button onClick={() => setShowAddForm(true)}
-                style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
-                + 상품 등록
+              <button onClick={() => { setShowAddForm(v => !v); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: showAddForm ? C.red : C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
+                {showAddForm ? '✕ 닫기' : '+ 상품 등록'}
               </button>
             </div>
 
@@ -512,8 +512,8 @@ export default function AdminPage() {
                 <p style={{ fontSize: 40, margin: 0 }}>📦</p>
                 <p style={{ fontSize: 15, fontWeight: 600, color: C.text, marginTop: 12 }}>등록된 상품이 없어요</p>
                 <p style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>상품을 등록하면 앱과 웹에 바로 반영돼요</p>
-                <button onClick={() => setShowAddForm(true)}
-                  style={{ marginTop: 16, padding: '12px 24px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit' }}>
+                <button onClick={() => { setShowAddForm(true); }}
+                  style={{ marginTop: 16, padding: '12px 24px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
                   첫 상품 등록하기
                 </button>
               </div>
