@@ -17,8 +17,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '쿠팡 URL이 필요해요' }, { status: 400 });
     }
 
-    // URL에서 productId 추출
-    const productId = extractProductId(url);
+    // URL에서 productId 추출 (축약 링크면 HTML 파싱)
+    let productId = extractProductId(url);
+    if (!productId && url.includes('link.coupang.com/a/')) {
+      productId = await extractProductIdFromShortlink(url);
+    }
 
     // ─── title 제공 시: 파트너스 검색 API 경로 (신뢰도 높음) ───
     console.log('[product-info] url=', url, 'title=', title, 'productId=', productId);
@@ -272,8 +275,29 @@ function cleanTitle(title: string): string {
  * /vp/products/107518?itemId=... → "107518"
  */
 function extractProductId(url: string): string | null {
-  const match = url.match(/\/vp\/products\/(\d+)/);
-  return match ? match[1] : null;
+  const match = url.match(/\/vp\/products\/(\d+)|pageKey=(\d+)/);
+  return match ? (match[1] || match[2]) : null;
+}
+
+/**
+ * 축약 링크 (link.coupang.com/a/xxx) HTML에서 productId 추출
+ * Deeplink Redirect 페이지의 JS 안에 \x25 이스케이프로 숨겨져 있음
+ */
+async function extractProductIdFromShortlink(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      redirect: 'follow',
+      headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15' },
+    });
+    const rawHtml = await res.text();
+    const decoded = rawHtml
+      .replace(/\\x([0-9a-f]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/%[0-9a-f]{2}/gi, m => { try { return decodeURIComponent(m); } catch { return m; } });
+    const m = decoded.match(/productId[^\d]{0,3}(\d+)/i);
+    return m ? m[1] : null;
+  } catch {
+    return null;
+  }
 }
 
 /**

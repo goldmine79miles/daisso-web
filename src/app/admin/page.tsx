@@ -1864,18 +1864,18 @@ export default function AdminPage() {
             <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>이미지 URL</span>
               <button type="button" onClick={async () => {
-                if (!editProduct.title) return;
+                if (!editProduct.title || !editProduct.affiliate_url) return;
                 try {
-                  const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(editProduct.title)}&limit=5`);
+                  // product-info API: 축약링크 풀어서 productId 추출 후 정확 매칭
+                  const res = await fetch('/api/coupang/product-info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: editProduct.affiliate_url, title: editProduct.title }),
+                  });
                   const json = await res.json();
-                  const items = json?.data?.productData || [];
-                  const m = editProduct.affiliate_url.match(/pageKey=(\d+)|\/vp\/products\/(\d+)/);
-                  const productId = m ? (m[1] || m[2]) : null;
-                  const matched = productId
-                    ? items.find((p: { productId: number | string }) => String(p.productId) === productId)
-                    : items[0];
-                  if (matched?.productImage) {
-                    setEditProduct({ ...editProduct, image_url: matched.productImage });
+                  const image = json?.data?.image;
+                  if (image) {
+                    setEditProduct({ ...editProduct, image_url: image });
                     alert('✅ 썸네일 자동 조회 완료');
                   } else {
                     alert('⚠️ 매칭되는 상품을 못 찾음. 수동으로 입력해주세요.');
