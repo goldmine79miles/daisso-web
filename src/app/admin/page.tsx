@@ -1212,10 +1212,16 @@ export default function AdminPage() {
                   style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
                 />
               </div>
-              <input value={infForm.inpock_url} onChange={e => setInfForm({ ...infForm, inpock_url: e.target.value })}
-                placeholder="인포크/링크트리/리틀리 URL (필수)"
-                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 10 }}
-              />
+              <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                <input value={infForm.inpock_url} onChange={e => setInfForm({ ...infForm, inpock_url: e.target.value })}
+                  placeholder="링크 URL (인포크/링크트리/리틀리/기타)"
+                  style={{ flex: 1, padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit' }}
+                />
+                <button onClick={() => infForm.inpock_url.trim() && scrapeInfluencer(infForm.inpock_url)} disabled={scrapeLoading || !infForm.inpock_url.trim()}
+                  style={{ padding: '10px 14px', borderRadius: 8, border: 'none', background: scrapeLoading ? C.muted : C.primary, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  {scrapeLoading ? '감지 중...' : '🔍 감지'}
+                </button>
+              </div>
               <input value={infForm.profile_url} onChange={e => setInfForm({ ...infForm, profile_url: e.target.value })}
                 placeholder="인스타/틱톡 프로필 URL (선택)"
                 style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 12 }}
@@ -1224,6 +1230,24 @@ export default function AdminPage() {
                 style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: infSaving ? C.muted : C.deal, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                 {infSaving ? '등록 중...' : '등록하기'}
               </button>
+              {/* 감지 미리보기 (등록 전) */}
+              {scrapeResult && !expandedInfId && (
+                <div style={{ marginTop: 12, padding: 12, background: C.bg, borderRadius: 10 }}>
+                  <p style={{ fontSize: 11, fontWeight: 600, color: C.text, margin: '0 0 8px' }}>
+                    미리보기: 쇼핑 링크 {scrapeResult.shoppingItems.length}개 / 전체 {scrapeResult.allItems.length}개
+                  </p>
+                  {scrapeResult.shoppingItems.slice(0, 10).map((item, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 8, alignItems: 'center', padding: '4px 0', borderBottom: i < 9 ? `1px solid ${C.border}` : 'none' }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 4, background: C.card, overflow: 'hidden', flexShrink: 0 }}>
+                        {item.image ? <img src={item.image} alt="" referrerPolicy="no-referrer" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : null}
+                      </div>
+                      <p style={{ fontSize: 11, margin: 0, color: C.text, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
+                      {item.platform && <span style={{ fontSize: 8, color: '#fff', background: item.platform === 'coupang' ? C.coupang : C.sub, padding: '1px 4px', borderRadius: 3, flexShrink: 0 }}>{item.platform}</span>}
+                    </div>
+                  ))}
+                  {scrapeResult.shoppingItems.length > 10 && <p style={{ fontSize: 10, color: C.muted, margin: '6px 0 0' }}>+{scrapeResult.shoppingItems.length - 10}개 더</p>}
+                </div>
+              )}
             </div>
 
             {/* 등록된 인플루언서 아코디언 */}
