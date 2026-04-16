@@ -470,24 +470,19 @@ export default function AdminPage() {
     if (!scrapeRegItem) return;
     setSaving(true);
     try {
-      // 이미 내 제휴 링크(link.coupang.com/a/)면 딥링크 변환 스킵
-      let myLink = '';
-      if (scrapeRegItem.url.startsWith('https://link.coupang.com/a/')) {
-        myLink = scrapeRegItem.url;
-      } else {
-        const dlRes = await fetch('/api/coupang/deeplink', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ urls: [scrapeRegItem.url] }),
-        });
-        const dlJson = await dlRes.json();
-        myLink = dlJson?.data?.[0]?.shortenUrl || '';
-        if (!myLink) {
-          const errMsg = dlJson?.rMessage || dlJson?.error || JSON.stringify(dlJson).slice(0, 200);
-          alert(`딥링크 변환 실패\n\n응답: ${errMsg}\n\nURL: ${scrapeRegItem.url.slice(0, 100)}`);
-          setSaving(false);
-          return;
-        }
+      // 딥링크 변환 — 리다이렉트 해석 후 내 파트너스 링크로 변환
+      const dlRes = await fetch('/api/coupang/deeplink', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [scrapeRegItem.url] }),
+      });
+      const dlJson = await dlRes.json();
+      const myLink = dlJson?.data?.[0]?.shortenUrl || '';
+      if (!myLink) {
+        const errMsg = dlJson?.rMessage || dlJson?.error || JSON.stringify(dlJson).slice(0, 200);
+        alert(`딥링크 변환 실패\n\n응답: ${errMsg}\n\nURL: ${scrapeRegItem.url.slice(0, 100)}`);
+        setSaving(false);
+        return;
       }
 
       // ── 내 어필리에이트 링크 검증 ──
