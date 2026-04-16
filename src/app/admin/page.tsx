@@ -1840,10 +1840,8 @@ export default function AdminPage() {
 
       {/* ━━━ 수정 모달 ━━━ */}
       {editProduct && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-          onClick={() => setEditProduct(null)}>
-          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}
-            onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 500, maxHeight: '80vh', overflow: 'auto' }}>
             <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 20px' }}>상품 수정</h3>
 
             <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>상품명</label>
