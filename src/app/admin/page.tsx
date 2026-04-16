@@ -87,7 +87,10 @@ interface SnsResult {
 }
 
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(false);
+  const [authed, setAuthed] = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('admin_auth') === 'true';
+    return false;
+  });
   const [pw, setPw] = useState('');
   const [tab, setTab] = useState<TabId>('products');
   const [showAddForm, setShowAddForm] = useState(false);
@@ -165,11 +168,11 @@ export default function AdminPage() {
             <p style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>관리자 비밀번호를 입력해주세요</p>
           </div>
           <input type="password" value={pw} onChange={e => setPw(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && pw === ADMIN_PASSWORD && setAuthed(true)}
+            onKeyDown={e => { if (e.key === 'Enter' && pw === ADMIN_PASSWORD) { sessionStorage.setItem('admin_auth', 'true'); setAuthed(true); } }}
             placeholder="비밀번호"
             style={{ width: '100%', padding: '14px 16px', fontSize: 15, borderRadius: 12, border: `1px solid ${C.border}`, background: C.bg, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
           />
-          <button onClick={() => pw === ADMIN_PASSWORD && setAuthed(true)}
+          <button onClick={() => { if (pw === ADMIN_PASSWORD) { sessionStorage.setItem('admin_auth', 'true'); setAuthed(true); } }}
             style={{ width: '100%', marginTop: 12, padding: '14px 0', fontSize: 15, fontWeight: 700, borderRadius: 12, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
             로그인
           </button>

@@ -101,7 +101,7 @@ export default async function HomePage() {
         {/* 히어로 배너 */}
         <section className="mx-4 mt-2 rounded-2xl p-8 text-white" style={{ background: 'linear-gradient(135deg, #E53935, #C62828)' }}>
           <h1 className="text-2xl md:text-3xl font-extrabold">검증된 가성비 제품<br />다있어요.</h1>
-          <p className="mt-2 text-sm md:text-base opacity-90">카테고리별 최저가 상품을 한눈에 확인하세요</p>
+          <p className="mt-2 text-sm md:text-base opacity-90">카테고리별 최저가 상품도 한눈에 확인하세요</p>
         </section>
 
         {/* 다들 이거 사고 있어요 */}
