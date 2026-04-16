@@ -419,7 +419,7 @@ export default function AdminPage() {
   }
 
   function openScrapeReg(title: string, url: string, image: string, platform: string, defaultSection: string = 'recommend') {
-    if (!url.includes('coupang.com')) {
+    if (!url.includes('coupang.com') && !url.includes('coupa.ng')) {
       alert(`⚠️ 쿠팡 외 링크(${platform})는 자동 등록 불가해요.\n쿠팡에서 같은 상품을 검색해서 등록하세요.`);
       return;
     }
@@ -481,20 +481,31 @@ export default function AdminPage() {
     if (!scrapeRegItem) return;
     setSaving(true);
     try {
-      // 딥링크 변환 — 리다이렉트 해석 후 내 파트너스 링크로 변환
-      const dlRes = await fetch('/api/coupang/deeplink', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ urls: [scrapeRegItem.url] }),
-      });
-      const dlJson = await dlRes.json();
-      const myLink = dlJson?.data?.[0]?.shortenUrl || '';
-      const landingUrl = dlJson?.data?.[0]?.landingUrl || '';
-      if (!myLink) {
-        const errMsg = dlJson?.rMessage || dlJson?.error || JSON.stringify(dlJson).slice(0, 200);
-        alert(`딥링크 변환 실패\n\n응답: ${errMsg}\n\nURL: ${scrapeRegItem.url.slice(0, 100)}`);
-        setSaving(false);
-        return;
+      // 이미 파트너스 축약 링크(coupa.ng, link.coupang.com/a/)면 그대로 사용
+      const isAlreadyPartners = scrapeRegItem.url.includes('coupa.ng') ||
+                                scrapeRegItem.url.startsWith('https://link.coupang.com/a/');
+      let myLink = '';
+      let landingUrl = '';
+      if (isAlreadyPartners) {
+        myLink = scrapeRegItem.url;
+        // 검증을 위해 landingUrl 추출 (best-effort) — 실패해도 진행
+        landingUrl = scrapeRegItem.url;
+      } else {
+        // 딥링크 변환 — 리다이렉트 해석 후 내 파트너스 링크로 변환
+        const dlRes = await fetch('/api/coupang/deeplink', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ urls: [scrapeRegItem.url] }),
+        });
+        const dlJson = await dlRes.json();
+        myLink = dlJson?.data?.[0]?.shortenUrl || '';
+        landingUrl = dlJson?.data?.[0]?.landingUrl || '';
+        if (!myLink) {
+          const errMsg = dlJson?.rMessage || dlJson?.error || JSON.stringify(dlJson).slice(0, 200);
+          alert(`딥링크 변환 실패\n\n응답: ${errMsg}\n\nURL: ${scrapeRegItem.url.slice(0, 100)}`);
+          setSaving(false);
+          return;
+        }
       }
 
       // ── 내 어필리에이트 링크 검증 ──
@@ -511,8 +522,8 @@ export default function AdminPage() {
         setSaving(false);
         return;
       }
-      // 3) 내 파트너스 태그(lptag) 포함 검증
-      if (!landingUrl.includes(`lptag=${MY_PARTNER_TAG}`)) {
+      // 3) 내 파트너스 태그(lptag) 포함 검증 — 파트너스 축약링크(coupa.ng)는 스킵 (내가 직접 생성)
+      if (!isAlreadyPartners && !landingUrl.includes(`lptag=${MY_PARTNER_TAG}`)) {
         const tagMatch = landingUrl.match(/lptag=([A-Z0-9]+)/);
         const foundTag = tagMatch ? tagMatch[1] : '없음';
         alert(`⛔ 내 파트너스 태그 불일치!\n\n예상: ${MY_PARTNER_TAG}\n실제: ${foundTag}\n\n등록을 중단합니다 — 커미션이 다른 사람에게 갈 수 있어요.`);
@@ -922,7 +933,8 @@ export default function AdminPage() {
                     const titleInput = document.getElementById('quickTitleInput') as HTMLInputElement;
                     const linkUrl = linkInput?.value?.trim();
                     const productTitle = titleInput?.value?.trim() || '';
-                    if (!linkUrl || !linkUrl.includes('coupang.com')) { alert('쿠팡 링크를 입력해주세요'); return; }
+                    const isCoupangLink = linkUrl && (linkUrl.includes('coupang.com') || linkUrl.includes('coupa.ng'));
+                    if (!linkUrl || !isCoupangLink) { alert('쿠팡 링크를 입력해주세요 (coupang.com 또는 coupa.ng)'); return; }
                     openScrapeReg(productTitle || '로딩중...', linkUrl, '', 'coupang', quickSection);
                     // 바로 상품 정보 조회 트리거 (title 포함)
                     setTimeout(() => {
