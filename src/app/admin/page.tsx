@@ -437,6 +437,10 @@ export default function AdminPage() {
   }
 
   async function scrapeInfluencer(url: string) {
+    let finalUrl = url.trim();
+    if (!finalUrl.startsWith('http://') && !finalUrl.startsWith('https://')) {
+      finalUrl = 'https://' + finalUrl;
+    }
     setScrapeUrl(url);
     setScrapeLoading(true);
     setScrapeResult(null);
@@ -444,7 +448,7 @@ export default function AdminPage() {
       const res = await fetch('/api/influencers/scrape', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url }),
+        body: JSON.stringify({ url: finalUrl }),
       });
       const json = await res.json();
       setScrapeResult(json.data || null);
