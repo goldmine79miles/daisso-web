@@ -401,28 +401,39 @@ export default function AdminPage() {
     setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: autoCategory, review1: '', review2: '', review3: '' });
   }
 
-  // 스크래핑 등록 — 가격 자동 조회
+  // 스크래핑 등록 — 가격+이미지 자동 조회
   async function lookupPrice() {
     if (!scrapeRegItem) return;
     setSaving(true);
     try {
-      // 상품명에서 숫자/특수문자 제거하고 핵심 키워드로 검색
       const kw = scrapeRegItem.title
-        .replace(/^\d+[\.\-\s]*/, '') // 앞 번호 제거
+        .replace(/^\d+[\.\-\s]*/, '')
         .replace(/[★✨🔥⭐\[\]()（）]/g, '')
         .trim()
         .slice(0, 30);
-      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(kw)}&limit=3`);
+      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(kw)}&limit=5`);
       const json = await res.json();
       const items = json?.data?.productData || json?.data || [];
       if (items.length > 0) {
         const best = items[0];
+        const sp = best.productPrice || 0;
+        const op = best.originalPrice || sp;
+        const dr = best.discountRate || (op > sp ? Math.round((1 - sp / op) * 100) : 0);
+
         setScrapeRegForm(f => ({
           ...f,
-          sale_price: String(best.productPrice || ''),
-          original_price: String(best.originalPrice || best.productPrice || ''),
-          discount_rate: String(best.discountRate || ''),
+          sale_price: String(sp),
+          original_price: String(op),
+          discount_rate: String(dr),
         }));
+
+        // 쿠팡 이미지로 교체할지 물어보기
+        if (best.productImage) {
+          const useImg = confirm(`쿠팡 검색 매칭 상품:\n"${(best.productName || '').slice(0, 50)}"\n\n할인가: ${sp.toLocaleString()}원 (${dr}% 할인)\n원가: ${op.toLocaleString()}원\n\n쿠팡 상품 이미지로 교체할까요?`);
+          if (useImg) {
+            setScrapeRegItem(prev => prev ? { ...prev, image: best.productImage } : prev);
+          }
+        }
       } else {
         alert('검색 결과가 없어요. 직접 입력해주세요.');
       }
