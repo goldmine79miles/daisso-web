@@ -43,6 +43,9 @@ function detectPlatform(url: string): string {
   if (url.includes('twitter.com') || url.includes('x.com')) return 'twitter';
   if (url.includes('threads.net')) return 'threads';
   if (url.includes('blog.naver.com') || url.includes('m.blog.naver.com')) return 'naver';
+  if (url.includes('inpock.co.kr') || url.includes('inpk.kr')) return 'inpock';
+  if (url.includes('linktr.ee')) return 'linktree';
+  if (url.includes('litt.ly')) return 'littly';
   return 'other';
 }
 
@@ -104,54 +107,55 @@ function decodeHTMLEntities(text: string): string {
 function extractKeywords(title: string, description: string): string[] {
   const text = `${title} ${description}`;
 
-  // 불필요한 문자 제거
+  // 해시태그 추출 → 가장 유용한 키워드 소스
+  const hashtags = (text.match(/#([^\s#]+)/g) || [])
+    .map(h => h.replace('#', '').replace(/["""''.,:;!?()]/g, '').trim())
+    .filter(h => h.length >= 2 && h.length <= 20)
+    .filter(h => !STOP_WORDS.has(h) && !SNS_STOP.has(h.toLowerCase()));
+
+  // 본문에서 제품 관련 키워드 추출
   const cleaned = text
     .replace(/https?:\/\/\S+/g, '')
-    .replace(/#\S+/g, ' ')  // 해시태그는 별도 처리
+    .replace(/#\S+/g, ' ')
     .replace(/@\S+/g, '')
     .replace(/[^\w\sㄱ-ㅎㅏ-ㅣ가-힣]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
-  // 해시태그 추출 (유용한 키워드)
-  const hashtags = (text.match(/#([^\s#]+)/g) || [])
-    .map(h => h.replace('#', '').replace(/["""''.,:;!?]/g, '').trim())
-    .filter(h => h.length >= 2 && h.length <= 20);
+  // 제품명 패턴 (숫자+단위) — 최우선
+  const productPatterns = (cleaned.match(/[가-힣A-Za-z]+\s*\d+\s*(?:ml|g|kg|매|개|팩|세트|인치|cm|mm|L|리터)/gi) || [])
+    .map(p => p.trim());
 
-  // 한국어 명사/제품명 패턴 추출 (2글자 이상)
-  const koreanWords = (cleaned.match(/[가-힣]{2,15}/g) || [])
-    .filter(w => !STOP_WORDS.has(w));
+  // 한국어 2~8글자 (제품명 범위)
+  const koreanWords = (cleaned.match(/[가-힣]{2,8}/g) || [])
+    .filter(w => !STOP_WORDS.has(w) && !SNS_STOP.has(w));
 
-  // 영어 단어 (브랜드명 등)
+  // 영어 브랜드명
   const englishWords = (cleaned.match(/[A-Za-z]{2,20}/g) || [])
-    .filter(w => !ENGLISH_STOP.has(w.toLowerCase()));
+    .filter(w => !ENGLISH_STOP.has(w.toLowerCase()) && !SNS_STOP.has(w.toLowerCase()));
 
-  // 제품명 패턴 (숫자+단위)
-  const productPatterns = cleaned.match(/[\w가-힣]+\s*\d+\s*(?:ml|g|kg|매|개|팩|세트|인치|cm|mm)/gi) || [];
-
-  // 합치고 중복 제거
-  const all = [...hashtags, ...productPatterns, ...koreanWords, ...englishWords];
-  const unique = [...new Set(all)].slice(0, 10);
-
-  // 검색에 쓸 만한 조합 키워드 만들기
+  // 우선순위: 해시태그(제품명) > 제품패턴 > 한국어 > 영어
   const searchTerms: string[] = [];
+  const seen = new Set<string>();
 
-  // 해시태그 기반 검색어
-  if (hashtags.length > 0) {
-    searchTerms.push(hashtags.slice(0, 3).join(' '));
+  function add(kw: string) {
+    const k = kw.toLowerCase().trim();
+    if (k.length < 2 || seen.has(k)) return;
+    seen.add(k);
+    searchTerms.push(kw.trim());
   }
 
-  // 브랜드 + 제품 조합
-  if (englishWords.length > 0 && koreanWords.length > 0) {
-    searchTerms.push(`${englishWords[0]} ${koreanWords[0]}`);
-  }
+  // 1. 해시태그 각각 (제일 유용)
+  hashtags.forEach(h => add(h));
 
-  // 단독 키워드
-  unique.forEach(kw => {
-    if (kw.length >= 2 && !searchTerms.includes(kw)) {
-      searchTerms.push(kw);
-    }
-  });
+  // 2. 제품 패턴
+  productPatterns.forEach(p => add(p));
+
+  // 3. 한국어 키워드 (제품성 높은 것만)
+  koreanWords.forEach(w => add(w));
+
+  // 4. 영어 브랜드
+  englishWords.slice(0, 3).forEach(w => add(w));
 
   return searchTerms.slice(0, 8);
 }
@@ -163,6 +167,17 @@ const STOP_WORDS = new Set([
   '이번', '오늘', '요즘', '최근', '드디어', '역시', '확실', '먼저', '나중',
   '여러분', '여러분들', '구매', '사용', '사용기', '사용법', '방법',
   '인스타', '인스타그램', '틱톡', '유튜브', '채널', '영상', '게시물',
+]);
+
+// SNS 인플루언서/채널/플랫폼 관련 불용어
+const SNS_STOP = new Set([
+  '살림남', '살림녀', '살림꿀템', '꿀템남', '꿀템녀', '리뷰어', '크리에이터',
+  '쿠팡', '쿠팡파트너스', '토스', '토스쇼핑', '컬리', '마켓컬리', '테무',
+  '네이버', '다이소', '올리브영', '무신사', '지그재그', '에이블리',
+  '구매', '구매방법', '링크', '프로필', '하단', '클릭', '검색', '댓글',
+  'official', 'life', 'the', 'nam', 'review', 'unboxing',
+  '인스타', '인스타그램', '틱톡', '유튜브', '릴스', '쇼츠',
+  'instagram', 'tiktok', 'youtube', 'reels', 'shorts',
 ]);
 
 const ENGLISH_STOP = new Set([
