@@ -117,19 +117,27 @@ function scrapeInpock(html: string): ScrapedItem[] {
         });
       }
 
+      // 상대경로 → CDN 절대경로 변환 헬퍼
+      function toCdn(path: string): string {
+        if (path.startsWith('http')) return path;
+        // 인포크 JSON의 상대경로에서 "images/" 프리픽스 제거 (CDN에 images/ 없음)
+        const cleaned = path.replace(/^images\//, '');
+        return INPOCK_CDN + cleaned;
+      }
+
       // 이미지 필드를 유연하게 찾는 헬퍼
       function findImage(obj: Record<string, unknown>): string | undefined {
         // 가능한 이미지 필드명 모두 체크
         const candidates = [obj.image, obj.thumbnail, obj.thumbnailUrl, obj.imageUrl, obj.img, obj.img_url, obj.ogImage, obj.photo];
         for (const c of candidates) {
           if (typeof c === 'string' && c.length > 2) {
-            return c.startsWith('http') ? c : INPOCK_CDN + c;
+            return toCdn(c);
           }
         }
         // 중첩된 이미지 객체 (image: { url: '...' })
         if (obj.image && typeof obj.image === 'object' && (obj.image as Record<string, unknown>).url) {
           const u = (obj.image as Record<string, unknown>).url as string;
-          return u.startsWith('http') ? u : INPOCK_CDN + u;
+          return toCdn(u);
         }
         return undefined;
       }

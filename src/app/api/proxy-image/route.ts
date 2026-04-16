@@ -17,6 +17,10 @@ export async function GET(req: NextRequest) {
       'inpock.co.kr',
       'thumbnail-a.akamaihd.net',
       'img.danawa.com',
+      'coupangcdn.com',
+      'thumbnail.coupangcdn.com',
+      'image.litt.ly',
+      'public.litt.ly',
     ];
     const hostname = new URL(decoded).hostname;
     if (!allowed.some(d => hostname.includes(d))) {
