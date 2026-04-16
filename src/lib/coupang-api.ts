@@ -81,6 +81,14 @@ export async function searchProducts(keyword: string, limit = 20) {
 }
 
 /**
+ * 카테고리별 베스트 상품 (실제로 카테고리 필터링됨)
+ */
+export async function getBestCategoryProducts(categoryId: number, limit = 20) {
+  const uri = `/v2/providers/affiliate_open_api/apis/openapi/v1/products/bestcategories/${categoryId}?limit=${limit}`;
+  return callCoupangApi('GET', uri);
+}
+
+/**
  * 카테고리 목록 (쿠팡 공식)
  */
 export const COUPANG_CATEGORIES = [

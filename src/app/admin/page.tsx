@@ -961,7 +961,7 @@ export default function AdminPage() {
                   let success = 0, failed = 0;
                   for (const { goldId, siteCat, offset } of CATEGORY_MAP) {
                     try {
-                      const gbRes = await fetch(`/api/coupang/goldbox?categoryId=${goldId}`);
+                      const gbRes = await fetch(`/api/coupang/best?categoryId=${goldId}&limit=10`);
                       const gbJson = await gbRes.json();
                       const list = Array.isArray(gbJson?.data) ? gbJson.data : (gbJson?.data?.productData || []);
                       const picked = list[offset];
