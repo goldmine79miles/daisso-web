@@ -82,15 +82,17 @@ export const revalidate = 60; // 60초마다 재생성
 
 export default async function HomePage() {
   // DB에서 상품 가져오기
-  const [rankingItems, recommendItems] = await Promise.all([
+  const [rankingItems, recommendItems, dealItems] = await Promise.all([
     getDbProducts('ranking'),
     getDbProducts('recommend'),
+    getDbProducts('deal'),
   ]);
 
   // 폴백: DB 상품 없으면 하드코딩 데이터
   const hotDeals = getHotDeals();
   const hasDbRanking = rankingItems.length > 0;
   const hasDbRecommend = recommendItems.length > 0;
+  const hasDbDeal = dealItems.length > 0;
 
   return (
     <>
@@ -121,6 +123,19 @@ export default async function HomePage() {
             }
           </div>
         </section>
+
+        {/* 득템 — 진짜 존나 싼 거 */}
+        {hasDbDeal && (
+          <section className="mt-10 px-4">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-xl">🔥</span>
+              <h2 className="text-xl font-bold">오늘의 <span className="text-red-500">득템</span></h2>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {dealItems.map((item) => <DbProductCard key={item.id} item={item} />)}
+            </div>
+          </section>
+        )}
 
         {/* 다들 이거 사고 있어요 */}
         <section className="mt-10 px-4">
