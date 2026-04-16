@@ -1849,12 +1849,50 @@ export default function AdminPage() {
               style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 12, marginTop: 4 }}
             />
 
-            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>제휴 링크</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'flex', alignItems: 'center', gap: 6 }}>
+              제휴 링크
+              {editProduct.affiliate_url.includes('lptag=AF6507576') || editProduct.affiliate_url.startsWith('https://link.coupang.com/a/') ? (
+                <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 700 }}>✓ 내 파트너스 링크</span>
+              ) : editProduct.affiliate_url.match(/lptag=AF\d+/) ? (
+                <span style={{ fontSize: 11, color: '#DC2626', fontWeight: 700 }}>⛔ 다른 사람 링크</span>
+              ) : null}
+            </label>
             <input value={editProduct.affiliate_url} onChange={e => setEditProduct({ ...editProduct, affiliate_url: e.target.value })}
               style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 12, marginTop: 4 }}
             />
 
-            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>이미지 URL</label>
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span>이미지 URL</span>
+              <button type="button" onClick={async () => {
+                if (!editProduct.title) return;
+                try {
+                  const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(editProduct.title)}&limit=5`);
+                  const json = await res.json();
+                  const items = json?.data?.productData || [];
+                  const m = editProduct.affiliate_url.match(/pageKey=(\d+)|\/vp\/products\/(\d+)/);
+                  const productId = m ? (m[1] || m[2]) : null;
+                  const matched = productId
+                    ? items.find((p: { productId: number | string }) => String(p.productId) === productId)
+                    : items[0];
+                  if (matched?.productImage) {
+                    setEditProduct({ ...editProduct, image_url: matched.productImage });
+                    alert('✅ 썸네일 자동 조회 완료');
+                  } else {
+                    alert('⚠️ 매칭되는 상품을 못 찾음. 수동으로 입력해주세요.');
+                  }
+                } catch {
+                  alert('조회 실패');
+                }
+              }}
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: 'none', background: C.coupang, color: '#fff', fontWeight: 700, cursor: 'pointer' }}>
+                🔍 썸네일 자동 조회
+              </button>
+            </label>
+            {editProduct.image_url && (
+              <div style={{ marginTop: 4 }}>
+                <img src={proxyImg(editProduct.image_url) || editProduct.image_url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
+              </div>
+            )}
             <input value={editProduct.image_url || ''} onChange={e => setEditProduct({ ...editProduct, image_url: e.target.value })}
               style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 12, marginTop: 4 }}
             />
@@ -1886,20 +1924,32 @@ export default function AdminPage() {
             <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>판매가</label>
-                <input type="number" value={editProduct.sale_price} onChange={e => setEditProduct({ ...editProduct, sale_price: Number(e.target.value) })}
+                <input type="number" value={editProduct.sale_price}
+                  onChange={e => {
+                    const sp = Number(e.target.value);
+                    const op = editProduct.original_price;
+                    const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                    setEditProduct({ ...editProduct, sale_price: sp, discount_rate: dr });
+                  }}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4 }}
                 />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>원가</label>
-                <input type="number" value={editProduct.original_price} onChange={e => setEditProduct({ ...editProduct, original_price: Number(e.target.value) })}
+                <input type="number" value={editProduct.original_price}
+                  onChange={e => {
+                    const op = Number(e.target.value);
+                    const sp = editProduct.sale_price;
+                    const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                    setEditProduct({ ...editProduct, original_price: op, discount_rate: dr });
+                  }}
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4 }}
                 />
               </div>
               <div style={{ width: 80 }}>
-                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>할인%</label>
-                <input type="number" value={editProduct.discount_rate} onChange={e => setEditProduct({ ...editProduct, discount_rate: Number(e.target.value) })}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4 }}
+                <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>할인% (자동)</label>
+                <input type="number" value={editProduct.discount_rate} readOnly
+                  style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4, background: C.bg, color: C.sub }}
                 />
               </div>
             </div>
