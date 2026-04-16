@@ -181,13 +181,14 @@ export default function AdminPage() {
 
   // 스크래핑 등록 폼
   const [scrapeRegItem, setScrapeRegItem] = useState<{ title: string; url: string; image: string; platform: string } | null>(null);
-  const [scrapeRegForm, setScrapeRegForm] = useState(() => {
-    if (typeof window === 'undefined') return { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' };
+  const [scrapeRegForm, setScrapeRegForm] = useState<{ sale_price: string; original_price: string; discount_rate: string; section: string; category: string; review1: string; review2: string; review3: string }>(() => {
+    const empty = { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' };
+    if (typeof window === 'undefined') return empty;
     try {
       const saved = sessionStorage.getItem('scrapeRegForm_draft');
-      if (saved) return JSON.parse(saved);
+      if (saved) return { ...empty, ...JSON.parse(saved) };
     } catch {}
-    return { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' };
+    return empty;
   });
   // 폼 변경 시 sessionStorage 자동저장 (창 전환 시 유지)
   useEffect(() => {
