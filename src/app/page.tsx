@@ -107,7 +107,7 @@ export default async function HomePage() {
         {/* 다있어 TOP 10 */}
         <section className="mt-8 px-4">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">다있어 TOP 7</h2>
+            <h2 className="text-xl font-bold">다들 이거 사고 있어요 TOP 7</h2>
             {hasDbRanking && (
               <span className="text-xs font-semibold text-green-500 flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" /> LIVE
@@ -124,7 +124,7 @@ export default async function HomePage() {
 
         {/* 다들 이거 사고 있어요 */}
         <section className="mt-10 px-4">
-          <h2 className="text-xl font-bold mb-4">다들 이거 사고 있어요</h2>
+          <h2 className="text-xl font-bold mb-4">다있어 가성비 추천</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {hasDbRecommend
               ? recommendItems.map((item) => <DbProductCard key={item.id} item={item} />)
