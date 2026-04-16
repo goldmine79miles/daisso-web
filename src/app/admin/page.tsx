@@ -449,6 +449,27 @@ export default function AdminPage() {
         setSaving(false);
         return;
       }
+
+      // ── 내 어필리에이트 링크 검증 ──
+      // 1) 쿠팡 링크 형태인지 확인
+      if (!myLink.includes('coupang.com')) {
+        alert('⛔ 변환된 링크가 쿠팡 링크가 아닙니다. 등록을 중단합니다.');
+        setSaving(false);
+        return;
+      }
+      // 2) 원본 인플루언서 링크와 다른지 확인 (같으면 변환 안 된 것)
+      if (myLink === scrapeRegItem.url) {
+        alert('⛔ 링크가 변환되지 않았어요. 인플루언서 원본 링크 그대로입니다.');
+        setSaving(false);
+        return;
+      }
+      // 3) 확인 프롬프트 — 실제 링크 보여주고 승인
+      const ok = confirm(`✅ 내 제휴 링크로 변환 완료!\n\n원본: ${scrapeRegItem.url.slice(0, 60)}...\n변환: ${myLink}\n\n이 링크로 등록할까요?`);
+      if (!ok) {
+        setSaving(false);
+        return;
+      }
+
       const sp = Number(scrapeRegForm.sale_price) || 0;
       const op = Number(scrapeRegForm.original_price) || sp;
       const dr = Number(scrapeRegForm.discount_rate) || (op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0);
