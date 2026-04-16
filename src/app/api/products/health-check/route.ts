@@ -52,11 +52,15 @@ async function runHealthCheck() {
           continue;
         }
 
-        // 기타 4xx/5xx
+        // 403 → 쿠팡 등 봇 차단, 정상일 수 있으므로 무시
+        if (res.status === 403) {
+          // 봇 차단은 일반적, 건너뜀
+          continue;
+        }
+
+        // 기타 4xx/5xx (500, 502, 503 등)
         if (res.status >= 400) {
-          await sql`UPDATE products SET is_active = false, updated_at = NOW() WHERE id = ${p.id}`;
-          results.push({ id: p.id, title: p.title, issue: `URL 오류 (${res.status})`, action: '자동 OFF', severity: 'critical' });
-          issues++;
+          results.push({ id: p.id, title: p.title, issue: `URL 오류 (${res.status})`, action: '유지 (확인 필요)', severity: 'warning' });
           continue;
         }
 
@@ -186,6 +190,17 @@ async function sendSlackAlert(report: {
   } catch {
     // Slack 실패해도 헬스체크 자체는 성공으로
     console.error('Slack 알림 전송 실패');
+  }
+}
+
+// PATCH — 전체 복구 (잘못된 OFF 복구용)
+export async function PATCH() {
+  try {
+    const sql = getDb();
+    const result = await sql`UPDATE products SET is_active = true, updated_at = NOW() WHERE is_active = false`;
+    return NextResponse.json({ data: { restored: result.length || 0, message: '전체 복구 완료' } });
+  } catch (e) {
+    return NextResponse.json({ error: '복구 실패: ' + String(e) }, { status: 500 });
   }
 }
 
