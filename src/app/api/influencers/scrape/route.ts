@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
 }
 
 function detectType(url: string): string {
-  if (url.includes('inpock.co.kr') || url.includes('inpk.kr')) return 'inpock';
+  if (url.includes('inpock.co.kr') || url.includes('inpk.kr') || url.includes('inpk.link')) return 'inpock';
   if (url.includes('linktr.ee')) return 'linktree';
   if (url.includes('litt.ly')) return 'littly';
   if (url.includes('beacons.ai')) return 'beacons';

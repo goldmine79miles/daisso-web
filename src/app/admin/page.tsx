@@ -352,6 +352,47 @@ export default function AdminPage() {
     setSaving(false);
   }
 
+  // 인플루언서 스크래핑에서 등록 — 쿠팡이면 내 딥링크로 변환
+  async function addFromScrape(title: string, url: string, image: string, platform: string) {
+    if (!url.includes('coupang.com')) {
+      alert(`⚠️ 쿠팡 외 링크(${platform})는 자동 등록 불가해요.\n쿠팡에서 같은 상품을 검색해서 등록하세요.`);
+      return;
+    }
+    setSaving(true);
+    try {
+      // 쿠팡 딥링크 API로 내 제휴 링크 생성
+      const dlRes = await fetch('/api/coupang/deeplink', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: [url] }),
+      });
+      const dlJson = await dlRes.json();
+      const myLink = dlJson?.data?.[0]?.shortenUrl;
+      if (!myLink) {
+        alert('딥링크 변환 실패. 쿠팡 검색 탭에서 직접 등록해주세요.');
+        setSaving(false);
+        return;
+      }
+      await fetch('/api/products', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          image_url: image || null,
+          affiliate_url: myLink,
+          platform: 'coupang',
+          category: 'all',
+          section: 'recommend',
+        }),
+      });
+      loadProducts();
+      alert(`✅ "${title.slice(0, 20)}..." 내 제휴링크로 등록 완료!`);
+    } catch (e) {
+      alert('등록 실패: ' + e);
+    }
+    setSaving(false);
+  }
+
   async function addFromSearch(item: GoldboxItem) {
     setSaving(true);
     try {
@@ -1279,7 +1320,7 @@ export default function AdminPage() {
                                             {item.platform && (
                                               <span style={{ fontSize: 8, fontWeight: 600, color: '#fff', background: item.platform === 'coupang' ? C.coupang : item.platform === 'naver' ? '#03C75A' : item.platform === 'toss' ? C.toss : C.sub, padding: '1px 5px', borderRadius: 3 }}>{item.platform}</span>
                                             )}
-                                            <button onClick={() => addFromSearch({ productId: '', productName: item.title, productPrice: 0, productImage: item.image || '', productUrl: item.url, categoryName: '', originalPrice: 0, discountRate: 0 })} disabled={saving}
+                                            <button onClick={() => addFromScrape(item.title, item.url, item.image || '', item.platform || '')} disabled={saving}
                                               style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: C.primary, color: '#fff', fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                               등록
                                             </button>
@@ -1358,7 +1399,7 @@ export default function AdminPage() {
                               {item.platform && (
                                 <span style={{ fontSize: 8, fontWeight: 600, color: '#fff', background: item.platform === 'coupang' ? C.coupang : item.platform === 'naver' ? '#03C75A' : item.platform === 'toss' ? C.toss : C.sub, padding: '1px 5px', borderRadius: 3 }}>{item.platform}</span>
                               )}
-                              <button onClick={() => addFromSearch({ productId: '', productName: item.title, productPrice: 0, productImage: item.image || '', productUrl: item.url, categoryName: '', originalPrice: 0, discountRate: 0 })} disabled={saving}
+                              <button onClick={() => addFromScrape(item.title, item.url, item.image || '', item.platform || '')} disabled={saving}
                                 style={{ padding: '3px 8px', borderRadius: 4, border: 'none', background: C.primary, color: '#fff', fontSize: 9, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                                 등록
                               </button>
