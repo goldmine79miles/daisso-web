@@ -940,101 +940,93 @@ export default function AdminPage() {
 
             {/* 골드박스 자동 채우기 */}
             <div style={{ margin: '0 20px 16px', padding: 16, background: `linear-gradient(135deg, ${C.primary}11, ${C.coupang}08)`, borderRadius: 16, border: `1px solid ${C.primary}22` }}>
-              <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>🎁 쿠팡 골드박스 자동 채우기</p>
-              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 10px' }}>카테고리별로 골드박스 인기상품 1개씩 내 제휴링크로 변환해서 &quot;가성비 추천&quot; 섹션에 등록</p>
-              <button
-                onClick={async () => {
-                  if (!confirm('골드박스에서 카테고리별 1개씩 추천 섹션에 자동 등록합니다. 진행할까요?')) return;
-                  const CATEGORY_MAP = [
-                    { goldId: 1014, siteCat: 'living',      offset: 0 },
-                    { goldId: 1013, siteCat: 'kitchen',     offset: 0 },
-                    { goldId: 1015, siteCat: 'interior',    offset: 0 },
-                    { goldId: 1015, siteCat: 'furniture',   offset: 1 },
-                    { goldId: 1012, siteCat: 'food',        offset: 0 },
-                    { goldId: 1016, siteCat: 'electronics', offset: 0 },
-                    { goldId: 1001, siteCat: 'fashion',     offset: 0 },
-                    { goldId: 1010, siteCat: 'beauty',      offset: 0 },
-                    { goldId: 1011, siteCat: 'baby',        offset: 0 },
-                    { goldId: 1017, siteCat: 'sports',      offset: 0 },
-                    { goldId: 1024, siteCat: 'pet',         offset: 0 },
-                  ];
-                  let success = 0, failed = 0;
-                  for (const { goldId, siteCat, offset } of CATEGORY_MAP) {
+              <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>🎁 쿠팡 베스트 자동 채우기</p>
+              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 10px' }}>카테고리 + 개수 + 섹션 선택 → 쿠팡 베스트 상품 자동 등록</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 80px 1fr auto', gap: 8, alignItems: 'end' }}>
+                <div>
+                  <label style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>카테고리</label>
+                  <select id="autoFillCategory" defaultValue="1014"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, marginTop: 3 }}>
+                    <option value="1014">생활</option>
+                    <option value="1013">주방</option>
+                    <option value="1015">인테리어/가구</option>
+                    <option value="1012">식품</option>
+                    <option value="1016">전자기기</option>
+                    <option value="1001">여성패션</option>
+                    <option value="1002">남성패션</option>
+                    <option value="1010">뷰티</option>
+                    <option value="1011">육아</option>
+                    <option value="1017">스포츠</option>
+                    <option value="1024">반려동물</option>
+                    <option value="1025">헬스/건강</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>개수</label>
+                  <input id="autoFillCount" type="number" defaultValue={5} min={1} max={20}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, marginTop: 3 }} />
+                </div>
+                <div>
+                  <label style={{ fontSize: 11, color: C.sub, fontWeight: 600 }}>섹션</label>
+                  <select id="autoFillSection" defaultValue="recommend"
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, marginTop: 3 }}>
+                    <option value="ranking">랭킹</option>
+                    <option value="recommend">추천</option>
+                    <option value="deal">득템</option>
+                  </select>
+                </div>
+                <button
+                  onClick={async () => {
+                    const catEl = document.getElementById('autoFillCategory') as HTMLSelectElement;
+                    const cntEl = document.getElementById('autoFillCount') as HTMLInputElement;
+                    const secEl = document.getElementById('autoFillSection') as HTMLSelectElement;
+                    const goldId = Number(catEl.value);
+                    const count = Math.max(1, Math.min(20, Number(cntEl.value) || 5));
+                    const section = secEl.value;
+                    const catMap: Record<number, string> = {
+                      1014: 'living', 1013: 'kitchen', 1015: 'interior', 1012: 'food',
+                      1016: 'electronics', 1001: 'fashion', 1002: 'fashion', 1010: 'beauty',
+                      1011: 'baby', 1017: 'sports', 1024: 'pet', 1025: 'health',
+                    };
+                    const siteCat = catMap[goldId] || 'all';
+                    if (!confirm(`${catEl.options[catEl.selectedIndex].text} 카테고리에서 ${count}개를 ${secEl.options[secEl.selectedIndex].text} 섹션에 등록합니다. 진행할까요?`)) return;
                     try {
-                      const gbRes = await fetch(`/api/coupang/best?categoryId=${goldId}&limit=10`);
+                      const gbRes = await fetch(`/api/coupang/best?categoryId=${goldId}&limit=${count + 5}`);
                       const gbJson = await gbRes.json();
                       const list = Array.isArray(gbJson?.data) ? gbJson.data : (gbJson?.data?.productData || []);
-                      const picked = list[offset];
-                      if (!picked?.productUrl) { failed++; continue; }
-                      if (!picked.productUrl.includes('lptag=AF6507576')) { failed++; continue; }
-                      const sp = Number(picked.productPrice) || 0;
-                      await fetch('/api/products', {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          title: picked.productName,
-                          image_url: picked.productImage || null,
-                          affiliate_url: picked.productUrl,
-                          platform: 'coupang',
-                          category: siteCat,
-                          section: 'recommend',
-                          sale_price: sp,
-                          original_price: sp,
-                          discount_rate: 0,
-                        }),
-                      });
-                      success++;
-                    } catch {
-                      failed++;
+                      let success = 0, failed = 0;
+                      for (const picked of list) {
+                        if (success >= count) break;
+                        if (!picked?.productUrl || !picked.productUrl.includes('lptag=AF6507576')) { failed++; continue; }
+                        try {
+                          const sp = Number(picked.productPrice) || 0;
+                          await fetch('/api/products', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                              title: picked.productName,
+                              image_url: picked.productImage || null,
+                              affiliate_url: picked.productUrl,
+                              platform: 'coupang',
+                              category: siteCat,
+                              section,
+                              sale_price: sp,
+                              original_price: sp,
+                              discount_rate: 0,
+                            }),
+                          });
+                          success++;
+                        } catch { failed++; }
+                      }
+                      loadProducts();
+                      alert(`✅ 완료 — 성공 ${success}개 / 실패 ${failed}개`);
+                    } catch (e) {
+                      alert(`조회 실패: ${e}`);
                     }
-                  }
-                  loadProducts();
-                  alert(`✅ 완료 — 성공 ${success}개 / 실패 ${failed}개`);
-                }}
-                style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', marginBottom: 8 }}
-              >
-                추천 섹션에 자동 채우기 (11개)
-              </button>
-              <button
-                onClick={async () => {
-                  if (!confirm('골드박스 인기상품을 랭킹 섹션에 7개 자동 등록합니다. 진행할까요?')) return;
-                  try {
-                    const gbRes = await fetch(`/api/coupang/goldbox`);
-                    const gbJson = await gbRes.json();
-                    const list = Array.isArray(gbJson?.data) ? gbJson.data : (gbJson?.data?.productData || []);
-                    let success = 0, failed = 0;
-                    for (const picked of list.slice(0, 15)) {
-                      if (!picked?.productUrl) { failed++; continue; }
-                      if (!picked.productUrl.includes('lptag=AF6507576')) { failed++; continue; }
-                      try {
-                        const sp = Number(picked.productPrice) || 0;
-                        await fetch('/api/products', {
-                          method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({
-                            title: picked.productName,
-                            image_url: picked.productImage || null,
-                            affiliate_url: picked.productUrl,
-                            platform: 'coupang',
-                            category: autoDetectCategory(picked.productName || ''),
-                            section: 'ranking',
-                            sale_price: sp,
-                            original_price: sp,
-                            discount_rate: 0,
-                          }),
-                        });
-                        success++;
-                        if (success >= 7) break;
-                      } catch { failed++; }
-                    }
-                    loadProducts();
-                    alert(`✅ 랭킹 채우기 완료 — 성공 ${success}개 / 실패 ${failed}개`);
-                  } catch {
-                    alert('골드박스 조회 실패');
-                  }
-                }}
-                style={{ width: '100%', padding: '12px 0', borderRadius: 10, border: 'none', background: C.deal, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}
-              >
-                랭킹 섹션에 자동 채우기 (TOP 7)
-              </button>
+                  }}
+                  style={{ padding: '8px 16px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                  자동등록
+                </button>
+              </div>
             </div>
 
             {/* 필터 */}
