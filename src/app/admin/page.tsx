@@ -42,12 +42,15 @@ const PLATFORMS = [
 const CATEGORIES = [
   { id: 'all', name: '전체' },
   { id: 'living', name: '생활' },
+  { id: 'kitchen', name: '주방' },
+  { id: 'furniture', name: '가구' },
+  { id: 'interior', name: '인테리어' },
   { id: 'food', name: '식품' },
   { id: 'electronics', name: '전자기기' },
   { id: 'fashion', name: '패션' },
   { id: 'beauty', name: '뷰티' },
   { id: 'baby', name: '육아' },
-  { id: 'health', name: '건강' },
+  { id: 'sports', name: '스포츠' },
   { id: 'pet', name: '반려동물' },
 ];
 
