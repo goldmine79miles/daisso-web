@@ -333,16 +333,10 @@ async function findByPartnersSearch(
       categoryName?: string;
     }
 
-    // productId 일치 항목 우선
-    let matched: CoupangProduct | null = null;
-    if (productId) {
-      matched = (items as CoupangProduct[]).find(p => String(p.productId) === productId) || null;
-    }
-
-    // 매칭 실패 시 첫 결과 (fallback)
-    if (!matched) {
-      matched = items[0] as CoupangProduct;
-    }
+    // productId 일치 항목만 사용 — 매칭 안 되면 null 리턴 (잘못된 매칭 방지)
+    if (!productId) return null;
+    const matched = (items as CoupangProduct[]).find(p => String(p.productId) === productId) || null;
+    if (!matched) return null;
 
     const salePrice = Number(matched.productPrice) || 0;
 
