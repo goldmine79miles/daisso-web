@@ -181,7 +181,7 @@ export default function AdminPage() {
 
   // 스크래핑 등록 폼
   const [scrapeRegItem, setScrapeRegItem] = useState<{ title: string; url: string; image: string; platform: string } | null>(null);
-  const [scrapeRegForm, setScrapeRegForm] = useState({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all' });
+  const [scrapeRegForm, setScrapeRegForm] = useState({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '' });
 
   // 대체 추천
   const [suggestProductId, setSuggestProductId] = useState<number | null>(null);
@@ -398,7 +398,7 @@ export default function AdminPage() {
     }
     const autoCategory = autoDetectCategory(title);
     setScrapeRegItem({ title, url, image, platform });
-    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: autoCategory });
+    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: autoCategory, review1: '', review2: '', review3: '' });
   }
 
   // 스크래핑 등록 — 가격 자동 조회
@@ -452,6 +452,7 @@ export default function AdminPage() {
       const sp = Number(scrapeRegForm.sale_price) || 0;
       const op = Number(scrapeRegForm.original_price) || sp;
       const dr = Number(scrapeRegForm.discount_rate) || (op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0);
+      const reviews = [scrapeRegForm.review1, scrapeRegForm.review2, scrapeRegForm.review3].filter(r => r.trim());
       await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -465,6 +466,7 @@ export default function AdminPage() {
           sale_price: sp,
           original_price: op,
           discount_rate: dr,
+          review_highlights: reviews.length > 0 ? reviews : undefined,
         }),
       });
       loadProducts();
@@ -1647,6 +1649,21 @@ export default function AdminPage() {
                   {CATEGORIES.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
+            </div>
+
+            {/* 한줄 후기 (선택) */}
+            <div style={{ marginBottom: 20 }}>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, display: 'block', marginBottom: 6 }}>한줄 후기 (선택 — 쿠팡 리뷰에서 복붙)</label>
+              {[
+                { key: 'review1' as const, placeholder: '예: 가격 대비 품질이 좋아서 재구매했어요' },
+                { key: 'review2' as const, placeholder: '예: 배송 빠르고 포장도 꼼꼼해요' },
+                { key: 'review3' as const, placeholder: '예: 이 가격에 이 퀄리티 찾기 힘들어요' },
+              ].map(({ key, placeholder }) => (
+                <input key={key} type="text" placeholder={placeholder}
+                  value={scrapeRegForm[key]}
+                  onChange={e => setScrapeRegForm(f => ({ ...f, [key]: e.target.value }))}
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, marginBottom: 6 }} />
+              ))}
             </div>
 
             <div style={{ display: 'flex', gap: 10 }}>

@@ -11,10 +11,16 @@ export async function PUT(req: NextRequest, { params }: Props) {
     const {
       title, image_url, affiliate_url, platform,
       category, section, sale_price, original_price,
-      discount_rate, sort_order, is_active,
+      discount_rate, sort_order, is_active, review_highlights,
     } = body;
 
+    const reviewJson = review_highlights !== undefined
+      ? (Array.isArray(review_highlights) && review_highlights.length > 0 ? JSON.stringify(review_highlights) : null)
+      : undefined; // undefined면 COALESCE로 기존값 유지
+
     const sql = getDb();
+    try { await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_highlights TEXT`; } catch { /* */ }
+
     const rows = await sql`
       UPDATE products SET
         title = COALESCE(${title ?? null}, title),
@@ -28,6 +34,7 @@ export async function PUT(req: NextRequest, { params }: Props) {
         discount_rate = COALESCE(${discount_rate ?? null}, discount_rate),
         sort_order = COALESCE(${sort_order ?? null}, sort_order),
         is_active = COALESCE(${is_active ?? null}, is_active),
+        review_highlights = COALESCE(${reviewJson ?? null}, review_highlights),
         updated_at = NOW()
       WHERE id = ${Number(id)}
       RETURNING *

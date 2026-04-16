@@ -13,6 +13,7 @@ export interface DbProduct {
   discount_rate: number;
   sort_order: number;
   is_active: boolean;
+  review_highlights: string | null; // JSON string: string[]
 }
 
 /**
