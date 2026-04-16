@@ -479,6 +479,7 @@ export default function AdminPage() {
       });
       const dlJson = await dlRes.json();
       const myLink = dlJson?.data?.[0]?.shortenUrl || '';
+      const landingUrl = dlJson?.data?.[0]?.landingUrl || '';
       if (!myLink) {
         const errMsg = dlJson?.rMessage || dlJson?.error || JSON.stringify(dlJson).slice(0, 200);
         alert(`딥링크 변환 실패\n\n응답: ${errMsg}\n\nURL: ${scrapeRegItem.url.slice(0, 100)}`);
@@ -487,6 +488,7 @@ export default function AdminPage() {
       }
 
       // ── 내 어필리에이트 링크 검증 ──
+      const MY_PARTNER_TAG = 'AF6507576'; // 다있어 파트너스 태그
       // 1) 쿠팡 링크 형태인지 확인
       if (!myLink.includes('coupang.com')) {
         alert('⛔ 변환된 링크가 쿠팡 링크가 아닙니다. 등록을 중단합니다.');
@@ -499,8 +501,16 @@ export default function AdminPage() {
         setSaving(false);
         return;
       }
-      // 3) 확인 프롬프트 — 실제 링크 보여주고 승인
-      const ok = confirm(`✅ 내 제휴 링크로 변환 완료!\n\n원본: ${scrapeRegItem.url.slice(0, 60)}...\n변환: ${myLink}\n\n이 링크로 등록할까요?`);
+      // 3) 내 파트너스 태그(lptag) 포함 검증
+      if (!landingUrl.includes(`lptag=${MY_PARTNER_TAG}`)) {
+        const tagMatch = landingUrl.match(/lptag=([A-Z0-9]+)/);
+        const foundTag = tagMatch ? tagMatch[1] : '없음';
+        alert(`⛔ 내 파트너스 태그 불일치!\n\n예상: ${MY_PARTNER_TAG}\n실제: ${foundTag}\n\n등록을 중단합니다 — 커미션이 다른 사람에게 갈 수 있어요.`);
+        setSaving(false);
+        return;
+      }
+      // 4) 확인 프롬프트 — 검증된 링크 보여주고 승인
+      const ok = confirm(`✅ 내 제휴 링크로 변환 완료!\n내 태그 ${MY_PARTNER_TAG} 확인 완료 ✓\n\n원본: ${scrapeRegItem.url.slice(0, 60)}...\n변환: ${myLink}\n\n이 링크로 등록할까요?`);
       if (!ok) {
         setSaving(false);
         return;
