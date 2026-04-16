@@ -85,29 +85,36 @@ function detectType(url: string): string {
   return 'generic';
 }
 
-/** 인포크 스크래핑 */
+/** 인포크 스크래핑 — Next.js SPA, <a> 안에 <h3>제품명</h3> + <img alt="제품명"> 구조 */
 function scrapeInpock(html: string): ScrapedItem[] {
   const items: ScrapedItem[] = [];
+  const seen = new Set<string>();
 
-  // 인포크 상품 카드: <a href="..."> 안에 제품명/이미지
-  // 패턴 1: data-link 또는 href에 외부 링크
-  const linkPattern = /<a[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  // 인포크 구조: <a href="외부링크" ... class="css-..."><div>...<img alt="제품명"/>...</div><div><h3>제품명</h3></div></a>
+  const linkPattern = /<a[^>]*href=["'](https?:\/\/[^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   let match;
 
   while ((match = linkPattern.exec(html)) !== null) {
     const href = match[1];
     const inner = match[2];
 
-    // 내부 링크 스킵
-    if (href.startsWith('#') || href.startsWith('/') || href.includes('inpock.co.kr/profile')) continue;
+    // 인포크 내부 링크 스킵
+    if (href.includes('inpock.co.kr') || href.includes('inpk.kr')) continue;
 
-    // 제목 추출
-    const titleMatch = inner.match(/<(?:p|span|div|h[1-6])[^>]*>([^<]{2,80})<\/(?:p|span|div|h[1-6])>/i);
-    const imgMatch = inner.match(/<img[^>]*src=["']([^"']+)["']/i);
+    // 중복 URL 스킵
+    if (seen.has(href)) continue;
+    seen.add(href);
 
-    const title = titleMatch
-      ? decodeEntities(titleMatch[1].trim())
-      : inner.replace(/<[^>]+>/g, '').trim().slice(0, 80);
+    // 제목 추출 우선순위: <h3> > <img alt> > 텍스트
+    const h3Match = inner.match(/<h3[^>]*>([^<]{2,80})<\/h3>/i);
+    const altMatch = inner.match(/<img[^>]*alt=["']([^"']{2,80})["']/i);
+    const imgMatch = inner.match(/<img[^>]*src=["'](https?:\/\/[^"']+)["']/i);
+
+    const title = h3Match
+      ? decodeEntities(h3Match[1].trim())
+      : altMatch
+        ? decodeEntities(altMatch[1].trim())
+        : inner.replace(/<[^>]+>/g, '').trim().slice(0, 80);
 
     if (title.length >= 2) {
       items.push({
@@ -200,7 +207,7 @@ function scrapeGeneric(html: string, baseUrl: string): ScrapedItem[] {
 
 function isShoppingLink(url: string): boolean {
   const shoppingDomains = [
-    'coupang.com', 'link.coupang.com',
+    'coupang.com', 'link.coupang.com', 'influencers.coupang.com',
     'tossshopping.com', 'toss.im',
     'kurly.com', 'marketkurly.com',
     'temu.com',
