@@ -376,6 +376,37 @@ export default function AdminPage() {
     setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all' });
   }
 
+  // 스크래핑 등록 — 가격 자동 조회
+  async function lookupPrice() {
+    if (!scrapeRegItem) return;
+    setSaving(true);
+    try {
+      // 상품명에서 숫자/특수문자 제거하고 핵심 키워드로 검색
+      const kw = scrapeRegItem.title
+        .replace(/^\d+[\.\-\s]*/, '') // 앞 번호 제거
+        .replace(/[★✨🔥⭐\[\]()（）]/g, '')
+        .trim()
+        .slice(0, 30);
+      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(kw)}&limit=3`);
+      const json = await res.json();
+      const items = json?.data?.productData || json?.data || [];
+      if (items.length > 0) {
+        const best = items[0];
+        setScrapeRegForm(f => ({
+          ...f,
+          sale_price: String(best.productPrice || ''),
+          original_price: String(best.originalPrice || best.productPrice || ''),
+          discount_rate: String(best.discountRate || ''),
+        }));
+      } else {
+        alert('검색 결과가 없어요. 직접 입력해주세요.');
+      }
+    } catch {
+      alert('가격 조회 실패. 직접 입력해주세요.');
+    }
+    setSaving(false);
+  }
+
   // 스크래핑 등록 — 2단계: 확정
   async function confirmScrapeReg() {
     if (!scrapeRegItem) return;
@@ -1539,7 +1570,13 @@ export default function AdminPage() {
             <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px' }}>상품 등록</h3>
             <p style={{ fontSize: 13, color: C.sub, margin: '0 0 16px', lineHeight: 1.4 }}>{scrapeRegItem.title.slice(0, 60)}{scrapeRegItem.title.length > 60 ? '...' : ''}</p>
 
-            {scrapeRegItem.image && <img src={proxyImg(scrapeRegItem.image)} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 10, marginBottom: 16 }} />}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              {scrapeRegItem.image && <img src={proxyImg(scrapeRegItem.image)} alt="" style={{ width: 60, height: 60, objectFit: 'cover', borderRadius: 10 }} />}
+              <button onClick={lookupPrice} disabled={saving}
+                style={{ padding: '8px 14px', borderRadius: 10, border: 'none', background: C.green, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: saving ? 0.5 : 1, whiteSpace: 'nowrap' }}>
+                {saving ? '조회중...' : '쿠팡 가격 조회'}
+              </button>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 12 }}>
               <div>
