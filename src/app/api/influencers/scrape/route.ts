@@ -165,6 +165,9 @@ function scrapeInpock(html: string): ScrapedItem[] {
     }
   }
 
+  // 최신순 정렬 (인포크는 오래된 순 → 뒤집어서 최신이 먼저)
+  items.reverse();
+
   return items;
 }
 
