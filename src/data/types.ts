@@ -1,6 +1,9 @@
 export type CategorySlug =
   | 'all'
   | 'living'
+  | 'kitchen'
+  | 'furniture'
+  | 'interior'
   | 'food'
   | 'electronics'
   | 'fashion'
