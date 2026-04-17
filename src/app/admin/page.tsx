@@ -611,8 +611,8 @@ export default function AdminPage() {
         setSaving(false);
         return;
       }
-      // 2) 원본 인플루언서 링크와 다른지 확인 (같으면 변환 안 된 것)
-      if (myLink === scrapeRegItem.url) {
+      // 2) 변환이 기대되던 상황(isAlreadyPartners=false)에서 동일 URL 반환되면 변환 실패
+      if (!isAlreadyPartners && myLink === scrapeRegItem.url) {
         alert('⛔ 링크가 변환되지 않았어요. 인플루언서 원본 링크 그대로입니다.');
         setSaving(false);
         return;
