@@ -571,9 +571,14 @@ export default function AdminPage() {
     if (!scrapeRegItem) return;
     setSaving(true);
     try {
-      // 이미 파트너스 축약 링크(coupa.ng, link.coupang.com/a/)면 그대로 사용
+      // 이미 파트너스 링크면 그대로 사용
+      // - coupa.ng 축약, link.coupang.com/a/ 축약
+      // - link.coupang.com/re/...?lptag=AF6507576 (Partners Search API 리턴 형태)
+      // - 기타 내 lptag 포함된 URL
+      const MY_PARTNER_TAG_EARLY = 'AF6507576';
       const isAlreadyPartners = scrapeRegItem.url.includes('coupa.ng') ||
-                                scrapeRegItem.url.startsWith('https://link.coupang.com/a/');
+                                scrapeRegItem.url.startsWith('https://link.coupang.com/a/') ||
+                                scrapeRegItem.url.includes(`lptag=${MY_PARTNER_TAG_EARLY}`);
       let myLink = '';
       let landingUrl = '';
       if (isAlreadyPartners) {
