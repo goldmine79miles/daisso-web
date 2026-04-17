@@ -284,6 +284,36 @@ export default function AdminPage() {
     })();
   }, [authed]);
 
+  /* ─── 조기 리턴 전에 선언 필수 훅들 (hook order 안정) ─────────────────────────── */
+  const [regSearchMessage, setRegSearchMessage] = useState('');
+
+  const loadInfluencers = useCallback(async () => {
+    setInfLoading(true);
+    try {
+      const res = await fetch('/api/influencers');
+      const json = await res.json();
+      setInfluencers(json.data || []);
+    } catch { setInfluencers([]); }
+    setInfLoading(false);
+  }, []);
+
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    try {
+      const res = await fetch('/api/categories?active=all');
+      const json = await res.json();
+      setCategoryRows(json.data || []);
+    } catch {
+      setCategoryRows([]);
+    }
+    setCategoriesLoading(false);
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (authed && tab === 'sns' && snsSubTab === 'influencer') loadInfluencers(); }, [authed, tab, snsSubTab]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (authed && tab === 'categories') loadCategories(); }, [authed, tab]);
+
   /* ─── 로그인 ─────────────────────────── */
   if (!authed) {
     return (
@@ -768,19 +798,7 @@ export default function AdminPage() {
     setSearchLoading(false);
   }
 
-  /* ─── 인플루언서 로드 ─────────────────────────── */
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (authed && tab === 'sns' && snsSubTab === 'influencer') loadInfluencers(); }, [authed, tab, snsSubTab]);
-
-  const loadInfluencers = useCallback(async () => {
-    setInfLoading(true);
-    try {
-      const res = await fetch('/api/influencers');
-      const json = await res.json();
-      setInfluencers(json.data || []);
-    } catch { setInfluencers([]); }
-    setInfLoading(false);
-  }, []);
+  /* ─── 인플루언서 로드 — loadInfluencers / useEffect는 위로 이동됨 ─────────────────────────── */
 
   async function saveInfluencer() {
     if (!infForm.name.trim() || !infForm.inpock_url.trim()) { alert('이름과 링크는 필수!'); return; }
@@ -855,8 +873,7 @@ export default function AdminPage() {
     setSuggestLoading(false);
   }
 
-  /* ─── 상품 등록 탭 Partners 검색 ─────────────────────────── */
-  const [regSearchMessage, setRegSearchMessage] = useState('');
+  /* ─── 상품 등록 탭 Partners 검색 — regSearchMessage는 위로 이동됨 ─────────────────────────── */
   async function regSearch() {
     if (!regSearchKw.trim()) return;
     setRegSearching(true);
@@ -882,21 +899,7 @@ export default function AdminPage() {
     setRegSearching(false);
   }
 
-  /* ─── 카테고리 ─────────────────────────── */
-  const loadCategories = useCallback(async () => {
-    setCategoriesLoading(true);
-    try {
-      const res = await fetch('/api/categories?active=all');
-      const json = await res.json();
-      setCategoryRows(json.data || []);
-    } catch {
-      setCategoryRows([]);
-    }
-    setCategoriesLoading(false);
-  }, []);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (authed && tab === 'categories') loadCategories(); }, [authed, tab]);
+  /* ─── 카테고리 — loadCategories / useEffect는 위로 이동됨 ─────────────────────────── */
 
   async function addCategory() {
     const slug = newCatSlug.trim().toLowerCase();
