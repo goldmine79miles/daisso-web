@@ -2066,7 +2066,9 @@ export default function AdminPage() {
                                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
                                     {scrapeResult.shoppingItems.map((item, i) => (
                                       <div key={i} style={{ background: C.card, borderRadius: 10, border: `1px solid ${C.border}`, overflow: 'hidden', position: 'relative' }}>
-                                        <div style={{ width: '100%', aspectRatio: '1', background: C.bg, overflow: 'hidden' }}>
+                                        <a href={item.url} target="_blank" rel="noopener noreferrer"
+                                          title={item.title}
+                                          style={{ display: 'block', width: '100%', aspectRatio: '1', background: C.bg, overflow: 'hidden', cursor: 'pointer' }}>
                                           {item.image ? (
                                             <img src={proxyImg(item.image)} alt={item.title} referrerPolicy="no-referrer"
                                               onError={(e) => { (e.target as HTMLImageElement).src = '/logo-text-only.png'; }}
@@ -2074,7 +2076,7 @@ export default function AdminPage() {
                                           ) : (
                                             <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24, color: C.muted }}>📷</div>
                                           )}
-                                        </div>
+                                        </a>
                                         <div style={{ padding: '6px 8px' }}>
                                           <p style={{ fontSize: 10, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.title}</p>
                                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>

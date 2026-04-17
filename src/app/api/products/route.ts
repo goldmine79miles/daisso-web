@@ -22,9 +22,28 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter(r => r.is_active === true);
     }
 
-    if (section) filtered = filtered.filter(r => r.section === section);
     if (category && category !== 'all') filtered = filtered.filter(r => r.category === category);
     if (platform) filtered = filtered.filter(r => r.platform === platform);
+
+    // 자동 TOP5 승급:
+    // - section=ranking: recommend + ranking 풀에서 view_count 상위 5개
+    // - section=recommend: 위 TOP5 제외한 recommend 나머지
+    // - 그 외(deal): 해당 섹션만
+    if (section === 'ranking') {
+      const pool = filtered.filter(r => r.section === 'recommend' || r.section === 'ranking');
+      pool.sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0));
+      filtered = pool.slice(0, 5);
+    } else if (section === 'recommend') {
+      const pool = filtered.filter(r => r.section === 'recommend' || r.section === 'ranking');
+      const top5 = [...pool]
+        .sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0))
+        .slice(0, 5)
+        .map(r => r.id);
+      const top5Set = new Set(top5);
+      filtered = filtered.filter(r => r.section === 'recommend' && !top5Set.has(r.id));
+    } else if (section) {
+      filtered = filtered.filter(r => r.section === section);
+    }
 
     return NextResponse.json({ data: filtered });
   } catch (e: unknown) {

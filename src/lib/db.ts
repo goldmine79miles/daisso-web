@@ -29,11 +29,15 @@ export async function initTables() {
     )
   `;
 
+  // 조회수 컬럼 (출시 후 TOP5 자동 승급용)
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0`;
+
   // 인덱스
   await sql`CREATE INDEX IF NOT EXISTS idx_products_section ON products(section, sort_order)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_category ON products(category)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_platform ON products(platform)`;
   await sql`CREATE INDEX IF NOT EXISTS idx_products_active ON products(is_active)`;
+  await sql`CREATE INDEX IF NOT EXISTS idx_products_view_count ON products(view_count DESC)`;
 
   // 인플루언서 링크 테이블
   await sql`
@@ -120,6 +124,7 @@ export interface DbProduct {
   discount_rate: number;
   sort_order: number;
   is_active: boolean;
+  view_count: number;
   created_at: string;
   updated_at: string;
 }
