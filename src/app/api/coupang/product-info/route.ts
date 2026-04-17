@@ -23,14 +23,17 @@ export async function POST(req: NextRequest) {
       productId = await extractProductIdFromShortlink(url);
     }
 
-    // ─── title 제공 시: 파트너스 검색 API 경로 (신뢰도 높음) ───
+    // ─── Partners Search 경로 (신뢰도 높음) ───
+    // productId 있으면 title/productId 두 키워드로 순차 시도, productId 매칭 필수
     console.log('[product-info] url=', url, 'title=', title, 'productId=', productId);
-    if (title && typeof title === 'string' && title.trim().length > 0) {
+    const keywords: string[] = [];
+    if (title && typeof title === 'string' && title.trim()) keywords.push(title.trim());
+    if (productId) keywords.push(productId); // productId를 키워드로 검색 (일부 상품은 indexed됨)
+    for (const kw of keywords) {
       try {
-        const match = await findByPartnersSearch(title.trim(), productId);
-        console.log('[product-info] partners search match:', match ? 'FOUND' : 'NULL', match);
+        const match = await findByPartnersSearch(kw, productId);
         if (match) {
-          return NextResponse.json({ data: match, via: 'partners-search' });
+          return NextResponse.json({ data: match, via: `partners-search:${kw.slice(0, 30)}` });
         }
       } catch (e) {
         console.error('[product-info] partners search threw:', e);
@@ -280,24 +283,59 @@ function extractProductId(url: string): string | null {
 }
 
 /**
- * 축약 링크 (link.coupang.com/a/xxx) HTML에서 productId 추출
- * Deeplink Redirect 페이지의 JS 안에 \x25 이스케이프로 숨겨져 있음
+ * 축약/파트너스/인플루언서 링크에서 productId 추출 — 여러 전략 시도
  */
 async function extractProductIdFromShortlink(url: string): Promise<string | null> {
+  const tryHeaders = {
+    'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'ko-KR,ko;q=0.9',
+    'Referer': 'https://www.coupang.com/',
+  };
+
+  // 1) redirect: follow 로 최종 URL 확인
   try {
-    const res = await fetch(url, {
-      redirect: 'follow',
-      headers: { 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15' },
-    });
+    const res = await fetch(url, { redirect: 'follow', headers: tryHeaders });
+    const finalUrl = res.url;
+    const fromUrl = finalUrl.match(/\/vp\/products\/(\d+)/) || finalUrl.match(/pageKey=(\d+)/);
+    if (fromUrl) return fromUrl[1];
+
     const rawHtml = await res.text();
+    // 2) HTML 본문에서 product URL 패턴
+    const htmlUrl = rawHtml.match(/\/vp\/products\/(\d+)/);
+    if (htmlUrl) return htmlUrl[1];
+
+    // 3) \x 이스케이프 + URL-encode 디코딩 후 재시도
     const decoded = rawHtml
       .replace(/\\x([0-9a-f]{2})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
+      .replace(/\\u([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)))
       .replace(/%[0-9a-f]{2}/gi, m => { try { return decodeURIComponent(m); } catch { return m; } });
-    const m = decoded.match(/productId[^\d]{0,3}(\d+)/i);
-    return m ? m[1] : null;
-  } catch {
-    return null;
-  }
+    const decodedUrl = decoded.match(/\/vp\/products\/(\d+)/);
+    if (decodedUrl) return decodedUrl[1];
+
+    // 4) "productId":123 / productId=123 / productId\":123 등 넓은 패턴
+    const pid = decoded.match(/productId["'\\:=\s]{1,10}(\d{4,})/i);
+    if (pid) return pid[1];
+  } catch { /* */ }
+
+  // 5) 수동 redirect 수집 (redirect: manual로 Location 헤더 연속 추적)
+  try {
+    let current = url;
+    for (let i = 0; i < 6; i++) {
+      const res = await fetch(current, { method: 'GET', redirect: 'manual', headers: tryHeaders });
+      const loc = res.headers.get('location');
+      if (loc) {
+        const next = loc.startsWith('http') ? loc : new URL(loc, current).href;
+        const m = next.match(/\/vp\/products\/(\d+)/);
+        if (m) return m[1];
+        current = next;
+      } else {
+        break;
+      }
+    }
+  } catch { /* */ }
+
+  return null;
 }
 
 /**

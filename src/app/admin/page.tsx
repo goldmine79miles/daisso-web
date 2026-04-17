@@ -1406,47 +1406,72 @@ export default function AdminPage() {
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 14 }}
             />
 
-            {/* 이미지 URL + 자동 조회 */}
+            {/* 이미지 — 자동조회 + 드래그/붙여넣기 */}
             <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <span>이미지 URL</span>
-              <button type="button" onClick={async () => {
-                if (!form.affiliate_url) { alert('제휴 링크를 먼저 입력해주세요'); return; }
-                try {
-                  const res = await fetch('/api/coupang/product-info', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: form.affiliate_url, title: form.title }),
-                  });
-                  const json = await res.json();
-                  const d = json?.data;
-                  if (d?.image) {
-                    setForm(f => ({
-                      ...f,
-                      image_url: d.image,
-                      title: f.title || d.title || '',
-                      sale_price: f.sale_price || String(d.salePrice || ''),
-                      original_price: f.original_price || String(d.originalPrice || d.salePrice || ''),
-                      discount_rate: f.discount_rate || String(d.discountRate || ''),
-                    }));
-                    alert('✅ 썸네일 + 가격 자동 조회 완료');
-                  } else {
-                    alert('⚠️ 매칭 상품을 못 찾음. URL이나 제목 확인 후 다시 시도');
-                  }
-                } catch (e) { alert('조회 실패: ' + e); }
-              }}
-                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: 'none', background: C.coupang, color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                🔍 쿠팡에서 자동 조회
-              </button>
-            </label>
-            <input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })}
-              placeholder="https://... (없으면 자동 조회 클릭)"
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 8 }}
-            />
-            {form.image_url && (
-              <div style={{ marginBottom: 14 }}>
-                <img src={proxyImg(form.image_url) || form.image_url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
+              <span>썸네일 이미지</span>
+              <div style={{ display: 'flex', gap: 6 }}>
+                {form.affiliate_url && (
+                  <a href={form.affiliate_url} target="_blank" rel="noopener noreferrer"
+                    style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, color: C.sub, fontWeight: 600, textDecoration: 'none' }}>
+                    🌐 쿠팡 열기
+                  </a>
+                )}
+                <button type="button" onClick={async () => {
+                  if (!form.affiliate_url) { alert('제휴 링크를 먼저 입력해주세요'); return; }
+                  try {
+                    const res = await fetch('/api/coupang/product-info', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ url: form.affiliate_url, title: form.title }),
+                    });
+                    const json = await res.json();
+                    const d = json?.data;
+                    if (d?.image) {
+                      setForm(f => ({
+                        ...f,
+                        image_url: d.image,
+                        title: f.title || d.title || '',
+                        sale_price: f.sale_price || String(d.salePrice || ''),
+                        original_price: f.original_price || String(d.originalPrice || d.salePrice || ''),
+                        discount_rate: f.discount_rate || String(d.discountRate || ''),
+                      }));
+                      alert('✅ 자동 조회 완료');
+                    } else {
+                      alert('⚠️ 자동 조회 실패.\n→ 옆 "🌐 쿠팡 열기" 눌러 이미지를 드래그해서 아래 박스에 드롭하세요.');
+                    }
+                  } catch (e) { alert('조회 실패: ' + e + '\n→ "🌐 쿠팡 열기" 해서 이미지 드래그로 입력하세요.'); }
+                }}
+                  style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: 'none', background: C.coupang, color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                  🔍 자동 조회
+                </button>
               </div>
-            )}
+            </label>
+
+            {/* 드롭존 + URL 입력 */}
+            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', marginBottom: 6 }}
+              onDrop={e => {
+                e.preventDefault();
+                const url = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain');
+                if (url) setForm(f => ({ ...f, image_url: url }));
+              }}
+              onDragOver={e => e.preventDefault()}
+            >
+              <div style={{ width: 72, height: 72, borderRadius: 10, border: `2px dashed ${C.border}`, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', background: C.bg }}>
+                {form.image_url ? (
+                  <img src={proxyImg(form.image_url) || form.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  <span style={{ fontSize: 10, color: C.muted, textAlign: 'center', lineHeight: 1.3 }}>이미지<br/>드래그</span>
+                )}
+              </div>
+              <input value={form.image_url}
+                placeholder="URL 붙여넣기 or 왼쪽에 이미지 드래그"
+                onChange={e => setForm({ ...form, image_url: e.target.value })}
+                style={{ flex: 1, padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              />
+            </div>
+            <p style={{ fontSize: 10, color: C.muted, margin: '0 0 14px' }}>
+              자동 조회 안 되면 <b>🌐 쿠팡 열기</b> → 이미지 우클릭/꾹눌러서 드래그해 왼쪽 박스에 드롭
+            </p>
 
             {/* 가격 — 판매가/원가 입력 시 할인율 자동 계산 */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
