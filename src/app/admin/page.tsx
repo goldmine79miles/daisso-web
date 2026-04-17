@@ -1357,24 +1357,23 @@ export default function AdminPage() {
 
             {/* ━━━ 쿠팡 Partners 검색해서 등록 (register 탭 전용) ━━━ */}
             {tab === 'register' && (
-              <div style={{ padding: '18px', margin: '16px', background: `linear-gradient(135deg, #FFF5F5, #FFECEC)`, borderRadius: 16, border: `2px solid ${C.coupang}33` }}>
+              <div style={{ padding: '20px', margin: '16px', background: C.coupang, borderRadius: 18, boxShadow: `0 6px 20px ${C.coupang}55` }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                  <PlatformBadge platform="coupang" />
-                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: C.text }}>🔍 인플루언서 상품 → 키워드로 조회해서 바로 등록</h3>
+                  <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: 14, background: '#fff', color: C.coupang, fontSize: 14, fontWeight: 800 }}>1</span>
+                  <h3 style={{ fontSize: 17, fontWeight: 800, margin: 0, color: '#fff', letterSpacing: -0.3 }}>🔍 쿠팡에서 상품 찾기</h3>
                 </div>
-                <p style={{ fontSize: 11, color: C.sub, margin: '0 0 12px', lineHeight: 1.5 }}>
-                  인플루언서가 추천한 상품을 쿠팡 Partners API에 조회 → 나오면 클릭으로 바로 등록 (썸네일/가격/내 딥링크 자동).<br />
-                  상품명 통째로 붙여넣어도 되고, 핵심 키워드만 써도 돼요 (예: "스테인리스 수세미 10개").
+                <p style={{ fontSize: 12, color: '#fff', margin: '0 0 14px', lineHeight: 1.55, opacity: 0.95 }}>
+                  인플루언서가 추천한 상품을 <b>상품명/키워드로 조회</b> → 결과 클릭 → 썸네일/가격/내 링크 자동 채워진 상세 모달로 이동
                 </p>
                 <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                   <input value={regSearchKw} onChange={e => setRegSearchKw(e.target.value)}
                     onKeyDown={e => e.key === 'Enter' && regSearch()}
-                    placeholder="상품명/키워드 입력 후 Enter"
-                    style={{ flex: 1, padding: '11px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                    placeholder="예: 스테인리스 수세미 10개"
+                    style={{ flex: 1, padding: '14px 16px', borderRadius: 12, border: 'none', fontSize: 14, fontFamily: 'inherit', outline: 'none', fontWeight: 500 }}
                   />
                   <button onClick={regSearch} disabled={regSearching}
-                    style={{ padding: '11px 18px', borderRadius: 10, border: 'none', background: regSearching ? C.muted : C.coupang, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
-                    {regSearching ? '...' : '조회'}
+                    style={{ padding: '14px 22px', borderRadius: 12, border: 'none', background: regSearching ? '#B91C1C99' : '#7F1D1D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                    {regSearching ? '조회중...' : '조회'}
                   </button>
                 </div>
                 {regSearchMessage && (
@@ -1419,9 +1418,12 @@ export default function AdminPage() {
 
             {/* ━━━ 수동 등록 폼 (register 탭에서 항상 표시) ━━━ */}
             {tab === 'register' && (
-              <div style={{ padding: '20px', margin: '16px', background: C.card, borderRadius: 16, border: `2px solid ${C.primary}`, boxShadow: '0 4px 20px rgba(49,130,246,0.1)' }}>
+              <div style={{ padding: '20px', margin: '16px', background: C.card, borderRadius: 16, border: `1px solid ${C.border}` }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>✏️ 수동 등록 (검색 안 될 때)</h2>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: 12, background: C.sub, color: '#fff', fontSize: 12, fontWeight: 800 }}>2</span>
+                    <h2 style={{ fontSize: 15, fontWeight: 700, margin: 0, color: C.sub }}>✏️ 수동 등록 <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>— 위에서 검색 안 될 때만</span></h2>
+                  </div>
                   <button onClick={() => setTab('products')} style={{ border: 'none', background: C.bg, padding: '4px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>관리로</button>
                 </div>
 
