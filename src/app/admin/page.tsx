@@ -340,6 +340,9 @@ export default function AdminPage() {
       if (json.data) {
         setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '' });
         loadProducts();
+        alert(`✅ "${(json.data.title || '').slice(0, 30)}" 등록 완료!\n앱/웹에 바로 반영됐어요.`);
+      } else {
+        alert('등록 실패: ' + (json.error || '알 수 없는 오류'));
       }
     } catch (e) {
       alert('등록 실패: ' + e);
@@ -356,6 +359,7 @@ export default function AdminPage() {
       });
       loadProducts();
       setEditProduct(null);
+      alert(`✅ "${p.title.slice(0, 30)}" 수정 완료!`);
     } catch (e) {
       alert('수정 실패: ' + e);
     }
@@ -733,8 +737,10 @@ export default function AdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(infForm),
       });
+      const name = infForm.name;
       setInfForm({ name: '', inpock_url: '', profile_url: '', memo: '' });
       loadInfluencers();
+      alert(`✅ 인플루언서 "${name}" 등록 완료!`);
     } catch (e) { alert('등록 실패: ' + e); }
     setInfSaving(false);
   }
@@ -825,8 +831,10 @@ export default function AdminPage() {
       });
       const json = await res.json();
       if (json.error) { alert(json.error); return; }
+      const addedName = newCatName;
       setNewCatSlug(''); setNewCatName(''); setNewCatEmoji('');
       loadCategories();
+      alert(`✅ 카테고리 "${addedName}" 추가 완료!`);
     } catch (e) { alert('추가 실패: ' + e); }
   }
 
