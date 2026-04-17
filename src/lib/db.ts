@@ -31,6 +31,10 @@ export async function initTables() {
 
   // 조회수 컬럼 (출시 후 TOP5 자동 승급용)
   await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS view_count INTEGER DEFAULT 0`;
+  // 핀 고정 (true면 영구, false면 ranked_at 기준 24h 유지)
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false`;
+  // 랭킹으로 수동 올린 시각 (non-pinned 24h 타이머용)
+  await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS ranked_at TIMESTAMP`;
 
   // 인덱스
   await sql`CREATE INDEX IF NOT EXISTS idx_products_section ON products(section, sort_order)`;
@@ -125,6 +129,8 @@ export interface DbProduct {
   sort_order: number;
   is_active: boolean;
   view_count: number;
+  pinned: boolean;
+  ranked_at: string | null;
   created_at: string;
   updated_at: string;
 }

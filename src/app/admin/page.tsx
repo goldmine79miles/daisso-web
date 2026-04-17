@@ -73,6 +73,9 @@ interface Product {
   discount_rate: number;
   sort_order: number;
   is_active: boolean;
+  pinned?: boolean;
+  ranked_at?: string | null;
+  view_count?: number;
 }
 
 interface GoldboxItem {
@@ -1428,9 +1431,19 @@ export default function AdminPage() {
                     {/* 정보 */}
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{p.title}</p>
-                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                         <PlatformBadge platform={p.platform} />
                         <SectionBadge section={p.section} />
+                        {p.section === 'ranking' && (
+                          p.pinned ? (
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', background: C.primary, padding: '2px 6px', borderRadius: 4 }}>📌 PIN</span>
+                          ) : (
+                            <span style={{ fontSize: 9, fontWeight: 600, color: C.deal, background: `${C.deal}15`, padding: '2px 6px', borderRadius: 4 }}>⏰ 24h</span>
+                          )
+                        )}
+                        {typeof p.view_count === 'number' && p.view_count > 0 && (
+                          <span style={{ fontSize: 9, color: C.sub, background: C.bg, padding: '2px 6px', borderRadius: 4 }}>👁 {p.view_count}</span>
+                        )}
                         {p.category !== 'all' && (
                           <span style={{ fontSize: 9, color: C.sub, background: C.bg, padding: '2px 6px', borderRadius: 4 }}>
                             {CATEGORIES.find(c => c.id === p.category)?.name}
@@ -2426,6 +2439,14 @@ export default function AdminPage() {
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', marginTop: 4 }}>
                   {SECTIONS.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
+                {editProduct.section === 'ranking' && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, fontSize: 12, color: C.text, cursor: 'pointer', padding: '6px 8px', background: editProduct.pinned ? `${C.primary}12` : C.bg, borderRadius: 6 }}>
+                    <input type="checkbox" checked={!!editProduct.pinned}
+                      onChange={e => setEditProduct({ ...editProduct, pinned: e.target.checked })}
+                      style={{ cursor: 'pointer' }} />
+                    <span style={{ fontWeight: 600 }}>📌 핀 고정 {editProduct.pinned ? '(영구)' : '(24h)'}</span>
+                  </label>
+                )}
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 12, fontWeight: 600, color: C.sub }}>카테고리</label>

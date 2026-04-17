@@ -25,24 +25,48 @@ export async function GET(req: NextRequest) {
     if (category && category !== 'all') filtered = filtered.filter(r => r.category === category);
     if (platform) filtered = filtered.filter(r => r.platform === platform);
 
-    // 자동 TOP5 승급 + 어드민 강제 고정:
-    // - section='ranking'인 상품은 PINNED (강제 고정) — 항상 TOP5에 포함
-    // - 남은 자리는 section='recommend' 중 view_count 상위로 채움
-    // - section=recommend 요청 시: 위 TOP5에 들어간 상품은 제외
-    const pinned = filtered.filter(r => r.section === 'ranking')
+    // 자동 TOP5 승급 + 강제 고정 + 24시간 만료:
+    // - pinned=true → 무조건 TOP5 (영구)
+    // - section='ranking' + pinned=false + ranked_at < 24h → TOP5 (임시)
+    // - 나머지 자리 → section='recommend' 중 view_count 상위로 채움
+    // - section='ranking' + pinned=false + ranked_at >= 24h → recommend 로 fallback (만료)
+    const now = Date.now();
+    const DAY_MS = 24 * 60 * 60 * 1000;
+
+    const isPermaPinned = (r: Record<string, unknown>) => r.pinned === true;
+    const isTempRanking = (r: Record<string, unknown>) => {
+      if (r.section !== 'ranking' || r.pinned === true) return false;
+      const t = r.ranked_at ? new Date(String(r.ranked_at)).getTime() : 0;
+      return t > 0 && (now - t) < DAY_MS;
+    };
+
+    const permaPinned = filtered.filter(isPermaPinned)
       .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
-    const remainingSlots = Math.max(0, 5 - pinned.length);
-    const autoPicks = filtered
-      .filter(r => r.section === 'recommend')
+    const tempRanking = filtered.filter(isTempRanking)
+      .sort((a, b) => new Date(String(b.ranked_at)).getTime() - new Date(String(a.ranked_at)).getTime());
+
+    const fixedRanking = [...permaPinned, ...tempRanking].slice(0, 5);
+    const fixedIds = new Set(fixedRanking.map(r => r.id));
+    const remainingSlots = Math.max(0, 5 - fixedRanking.length);
+
+    // 만료된 임시 랭킹도 recommend 풀에 포함
+    const recommendPool = filtered.filter(r => {
+      if (fixedIds.has(r.id)) return false;
+      if (r.section === 'recommend') return true;
+      if (r.section === 'ranking' && r.pinned !== true) return true; // 만료 랭킹
+      return false;
+    });
+
+    const autoPicks = [...recommendPool]
       .sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0))
       .slice(0, remainingSlots);
-    const top5 = [...pinned, ...autoPicks].slice(0, 5);
+    const top5 = [...fixedRanking, ...autoPicks].slice(0, 5);
     const top5Ids = new Set(top5.map(r => r.id));
 
     if (section === 'ranking') {
       filtered = top5;
     } else if (section === 'recommend') {
-      filtered = filtered.filter(r => r.section === 'recommend' && !top5Ids.has(r.id));
+      filtered = recommendPool.filter(r => !top5Ids.has(r.id));
     } else if (section) {
       filtered = filtered.filter(r => r.section === section);
     }

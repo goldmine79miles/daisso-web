@@ -12,14 +12,27 @@ export async function PUT(req: NextRequest, { params }: Props) {
       title, image_url, affiliate_url, platform,
       category, section, sale_price, original_price,
       discount_rate, sort_order, is_active, review_highlights,
+      pinned,
     } = body;
 
     const reviewJson = review_highlights !== undefined
       ? (Array.isArray(review_highlights) && review_highlights.length > 0 ? JSON.stringify(review_highlights) : null)
-      : undefined; // undefined면 COALESCE로 기존값 유지
+      : undefined;
 
     const sql = getDb();
     try { await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_highlights TEXT`; } catch { /* */ }
+    try {
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS ranked_at TIMESTAMP`;
+    } catch { /* */ }
+
+    // 현재 section 확인 — 랭킹으로 새로 올라가면 ranked_at 갱신
+    const current = await sql`SELECT section FROM products WHERE id = ${Number(id)}`;
+    const prevSection = current[0]?.section;
+    const willPromote = typeof section === 'string' && section === 'ranking' && prevSection !== 'ranking';
+    const willDemote = typeof section === 'string' && section !== 'ranking' && prevSection === 'ranking';
+    // 타임스탬프: 새로 랭킹이면 NOW(), 랭킹 떠나면 null, 아니면 기존 유지
+    const rankedAtExpr = willPromote ? new Date().toISOString() : willDemote ? null : undefined;
 
     const rows = await sql`
       UPDATE products SET
@@ -35,6 +48,12 @@ export async function PUT(req: NextRequest, { params }: Props) {
         sort_order = COALESCE(${sort_order ?? null}, sort_order),
         is_active = COALESCE(${is_active ?? null}, is_active),
         review_highlights = COALESCE(${reviewJson ?? null}, review_highlights),
+        pinned = COALESCE(${typeof pinned === 'boolean' ? pinned : null}, pinned),
+        ranked_at = CASE
+          WHEN ${willDemote} THEN NULL
+          WHEN ${willPromote} THEN ${rankedAtExpr}::timestamp
+          ELSE ranked_at
+        END,
         updated_at = NOW()
       WHERE id = ${Number(id)}
       RETURNING *
