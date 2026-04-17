@@ -812,23 +812,22 @@ export default function AdminPage() {
   }
 
   async function updateCategory(id: number, patch: Partial<Pick<CategoryRow, 'slug' | 'name' | 'emoji' | 'is_active'>>) {
-    try {
-      await fetch(`/api/categories/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(patch),
-      });
-      loadCategories();
-      setEditingCatId(null);
-    } catch (e) { alert('수정 실패: ' + e); }
+    // 낙관적 업데이트
+    setCategoryRows(rows => rows.map(c => c.id === id ? { ...c, ...patch } : c));
+    setEditingCatId(null);
+    // 백그라운드 저장
+    fetch(`/api/categories/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(patch),
+    }).catch(() => loadCategories());
   }
 
   async function deleteCategory(id: number) {
-    if (!confirm('정말 삭제할까요? (연결된 상품의 category는 남아있지만 홈 카테고리 바에서 사라져요)')) return;
-    try {
-      await fetch(`/api/categories/${id}`, { method: 'DELETE' });
-      loadCategories();
-    } catch (e) { alert('삭제 실패: ' + e); }
+    if (!confirm('정말 삭제할까요?')) return;
+    // 낙관적 제거
+    setCategoryRows(rows => rows.filter(c => c.id !== id));
+    fetch(`/api/categories/${id}`, { method: 'DELETE' }).catch(() => loadCategories());
   }
 
   async function moveCategoryOrder(id: number, direction: 'up' | 'down') {
@@ -836,17 +835,18 @@ export default function AdminPage() {
     const idx = sorted.findIndex(c => c.id === id);
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= sorted.length) return;
-    const orders = sorted.map((item, i) => {
-      if (i === idx) return { id: item.id, sort_order: swapIdx };
-      if (i === swapIdx) return { id: item.id, sort_order: idx };
-      return { id: item.id, sort_order: i };
-    });
-    await fetch('/api/categories/reorder', {
+    // 낙관적 업데이트 — 화면 즉시 반영
+    const swapped = [...sorted];
+    [swapped[idx], swapped[swapIdx]] = [swapped[swapIdx], swapped[idx]];
+    const reordered = swapped.map((c, i) => ({ ...c, sort_order: i }));
+    setCategoryRows(reordered);
+    // 백그라운드 저장 — 실패 시 재조회로 롤백
+    const orders = reordered.map(c => ({ id: c.id, sort_order: c.sort_order }));
+    fetch('/api/categories/reorder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orders }),
-    });
-    loadCategories();
+    }).catch(() => loadCategories());
   }
 
   /* ─── SNS ─────────────────────────── */
