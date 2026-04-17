@@ -1360,24 +1360,32 @@ export default function AdminPage() {
                   </p>
                 )}
                 {regSearchResults.length > 0 && (
-                  <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, maxHeight: 400, overflowY: 'auto' }}>
-                    {regSearchResults.map((item, i) => (
-                      <div key={item.productId || i} style={{ display: 'flex', gap: 10, padding: '10px 12px', borderBottom: i < regSearchResults.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center' }}>
-                        <img src={item.productImage} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.productName}</p>
-                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 3 }}>
-                            {item.discountRate > 0 && <span style={{ fontSize: 11, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
-                            <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                  <>
+                    <p style={{ fontSize: 11, color: C.sub, margin: '0 0 6px', fontWeight: 600 }}>👇 맞는 상품을 클릭하세요 (다른 상품도 같이 걸릴 수 있어요)</p>
+                    <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                      {regSearchResults.map((item, i) => (
+                        <div key={item.productId || i}
+                          onClick={() => openScrapeReg(item.productName, item.productUrl, item.productImage || '', 'coupang', 'recommend')}
+                          style={{ display: 'flex', gap: 10, padding: '12px 14px', borderBottom: i < regSearchResults.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = C.primaryLight; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, width: 18, textAlign: 'center', flexShrink: 0 }}>{i + 1}</span>
+                          <img src={item.productImage} alt="" style={{ width: 52, height: 52, borderRadius: 8, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: C.text, lineHeight: 1.35, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, overflow: 'hidden' }}>{item.productName}</p>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
+                              {item.discountRate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
+                              <span style={{ fontSize: 13, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                            </div>
                           </div>
+                          <span style={{ fontSize: 12, color: C.primary, fontWeight: 700, flexShrink: 0, padding: '6px 10px', background: C.primaryLight, borderRadius: 6 }}>
+                            선택 →
+                          </span>
                         </div>
-                        <button onClick={() => openScrapeReg(item.productName, item.productUrl, item.productImage || '', 'coupang', 'recommend')} disabled={saving}
-                          style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                          상세 입력 → 등록
-                        </button>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                    <p style={{ fontSize: 10, color: C.muted, margin: '6px 0 0', textAlign: 'center' }}>원하는 상품이 없으면 키워드를 줄여 다시 조회</p>
+                  </>
                 )}
               </div>
             )}
