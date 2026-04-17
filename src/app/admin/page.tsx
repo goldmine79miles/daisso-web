@@ -2645,24 +2645,47 @@ export default function AdminPage() {
             />
 
 
-            {/* 내 제휴 링크 (편집 가능) — Partners API 결과 그대로 써도 되고, 쿠팡 파트너스에서 생성한 내 간단링크로 교체도 가능 */}
-            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-              <span>내 제휴 링크</span>
-              {scrapeRegItem.url.includes('coupa.ng') || scrapeRegItem.url.startsWith('https://link.coupang.com/a/') ? (
-                <span style={{ fontSize: 10, color: '#16A34A', fontWeight: 700 }}>✓ 내 간단링크 (변환 건너뜀)</span>
-              ) : (
-                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>저장 시 자동으로 내 딥링크로 변환</span>
-              )}
-            </label>
+            {/* 내 제휴 링크 + 검증 결과 실시간 표시 */}
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'block', marginBottom: 4 }}>내 제휴 링크</label>
             <input
               value={scrapeRegItem.url}
               onChange={e => setScrapeRegItem(prev => prev ? { ...prev, url: e.target.value } : prev)}
               placeholder="Partners API URL 또는 내 간단링크 (link.coupang.com/a/... / coupa.ng/...)"
-              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 12, background: '#fff' }}
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 8, background: '#fff' }}
             />
-            <p style={{ fontSize: 10, color: C.muted, margin: '-6px 0 12px' }}>
-              💡 쿠팡 파트너스에서 내가 만든 간단링크를 여기 붙여넣어도 썸네일은 그대로 유지돼요.
-            </p>
+            {(() => {
+              const url = scrapeRegItem.url || '';
+              const isCoupang = url.includes('coupang.com') || url.includes('coupa.ng');
+              const hasMyTag = url.includes('lptag=AF6507576');
+              const isShortLinkA = url.startsWith('https://link.coupang.com/a/');
+              const isCoupaNg = url.includes('coupa.ng');
+              const isReLink = url.includes('link.coupang.com/re/');
+              const otherTag = url.match(/lptag=(AF\d+)/)?.[1];
+              const hasOtherTag = !!otherTag && otherTag !== 'AF6507576';
+              const isMyLink = isShortLinkA || isCoupaNg || hasMyTag;
+              return (
+                <div style={{ marginBottom: 12, padding: 10, background: isMyLink ? '#F0FDF4' : hasOtherTag ? '#FEF2F2' : C.bg, borderRadius: 8, border: `1px solid ${isMyLink ? '#86EFAC' : hasOtherTag ? '#FCA5A5' : C.border}` }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: C.sub, margin: '0 0 6px', letterSpacing: 0.3 }}>🛡 링크 검증</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                    <span style={{ fontSize: 11, color: isCoupang ? '#16A34A' : C.red, fontWeight: 600 }}>
+                      {isCoupang ? '✓' : '✗'} 쿠팡 도메인
+                    </span>
+                    {isShortLinkA && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600 }}>✓ 내 간단링크 (link.coupang.com/a/) — 변환 스킵</span>}
+                    {isCoupaNg && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600 }}>✓ 내 축약링크 (coupa.ng) — 변환 스킵</span>}
+                    {isReLink && hasMyTag && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600 }}>✓ Partners API 링크 (RE + 내 태그) — 변환 스킵</span>}
+                    {hasMyTag && !isShortLinkA && !isCoupaNg && !isReLink && <span style={{ fontSize: 11, color: '#16A34A', fontWeight: 600 }}>✓ 내 태그 (AF6507576) 포함</span>}
+                    {!isMyLink && isCoupang && !hasOtherTag && <span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}>ℹ️ 태그 없음 — 저장 시 내 링크로 자동 변환</span>}
+                    {hasOtherTag && <span style={{ fontSize: 11, color: C.red, fontWeight: 700 }}>⛔ 다른 사람 태그 ({otherTag}) — 저장 차단됨</span>}
+                    {!isCoupang && url && <span style={{ fontSize: 11, color: C.red, fontWeight: 600 }}>✗ 쿠팡 URL 아님 — 저장 불가</span>}
+                  </div>
+                  {isMyLink && (
+                    <p style={{ fontSize: 10, color: '#16A34A', margin: '6px 0 0', fontWeight: 600 }}>
+                      → 등록 버튼 누르면 바로 저장 (수수료 내게 들어옴)
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* 상품 조회 버튼 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
