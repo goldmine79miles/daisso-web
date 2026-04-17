@@ -47,16 +47,45 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: '상품 URL을 찾을 수 없어요' }, { status: 400 });
     }
 
-    // 상품 페이지 HTML 가져오기
-    const pageRes = await fetch(productUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
-        'Cache-Control': 'no-cache',
-      },
-    });
-    const html = await pageRes.text();
+    // 상품 페이지 HTML — 데스크탑/모바일 + 다양한 UA 순차 시도
+    const pid = extractProductId(productUrl);
+    const urlsToTry = [
+      productUrl,
+      pid ? `https://m.coupang.com/vm/products/${pid}` : null,
+      pid ? `https://m.coupang.com/nm/products/${pid}` : null,
+    ].filter(Boolean) as string[];
+
+    const userAgents = [
+      'Mozilla/5.0 (iPhone; CPU iPhone OS 17_2 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.2 Mobile/15E148 Safari/604.1',
+      'Mozilla/5.0 (Linux; Android 13; SM-S911N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    ];
+
+    let html = '';
+    for (const tryUrl of urlsToTry) {
+      for (const ua of userAgents) {
+        try {
+          const r = await fetch(tryUrl, {
+            headers: {
+              'User-Agent': ua,
+              'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+              'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+              'Cache-Control': 'no-cache',
+              'Referer': 'https://www.coupang.com/',
+            },
+          });
+          if (r.ok) {
+            const body = await r.text();
+            if (body && body.length > 1000) { html = body; break; }
+          }
+        } catch { /* 다음 UA 시도 */ }
+      }
+      if (html) break;
+    }
+
+    if (!html) {
+      return NextResponse.json({ error: '쿠팡 페이지 접근 차단됨 — 수동 이미지 입력 필요' }, { status: 503 });
+    }
 
     // 3) 메타 태그 + HTML에서 정보 추출
     const scrapedTitle = extractMeta(html, 'og:title') || extractTag(html, /<title>([^<]+)<\/title>/) || '';
