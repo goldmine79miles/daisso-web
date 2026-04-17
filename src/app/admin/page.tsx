@@ -185,6 +185,7 @@ export default function AdminPage() {
   const [aiSummarizing, setAiSummarizing] = useState(false);
   const [editReviewsRaw, setEditReviewsRaw] = useState('');
   const [editAiSummarizing, setEditAiSummarizing] = useState(false);
+  const [scrapeReviewsRaw, setScrapeReviewsRaw] = useState('');
   const [saving, setSaving] = useState(false);
 
   // 수정 모달
@@ -515,6 +516,7 @@ export default function AdminPage() {
       rating: '', review_count: '',
     });
     setMatchedProduct(null);
+    setScrapeReviewsRaw('');
   }
 
   // 스크래핑 등록 — 실제 쿠팡 상품 정보 조회 (리다이렉트 따라가서 정확한 상품)
@@ -2567,10 +2569,8 @@ export default function AdminPage() {
 
       {/* ━━━ 스크래핑 등록 모달 ━━━ */}
       {scrapeRegItem && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
-          onClick={() => setScrapeRegItem(null)}>
-          <div style={{ background: C.card, borderRadius: 20, width: '100%', maxWidth: 440, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
-            onClick={e => e.stopPropagation()}>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div style={{ background: C.card, borderRadius: 20, width: '100%', maxWidth: 440, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
             {/* 고정 헤더 — 닫기 버튼 항상 보임 */}
             <div style={{ padding: '18px 24px 12px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0, background: C.card, borderRadius: '20px 20px 0 0' }}>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -2802,15 +2802,22 @@ export default function AdminPage() {
             {/* 가성비 이유 3가지 — GPT 정리 + 수동 편집 */}
             <div style={{ marginBottom: 20, padding: 14, background: `linear-gradient(135deg, #FFF4D6, #FFE8A8)`, borderRadius: 12 }}>
               <label style={{ fontSize: 12, color: '#7A5F00', fontWeight: 700, display: 'block', marginBottom: 6 }}>✨ 가성비 이유 3가지 (상세 모달 노출)</label>
-              <p style={{ fontSize: 10, color: '#7A5F00', margin: '0 0 6px' }}>쿠팡 후기 복붙 → GPT가 3줄 정리. 안 누르면 수동 입력.</p>
+              <p style={{ fontSize: 10, color: '#7A5F00', margin: '0 0 6px', lineHeight: 1.5 }}>쿠팡 후기 여러 개 복붙 → <b>GPT 3줄 정리</b> 클릭. 비워두면 상품명만으로 GPT가 추측. 안 누르면 아래 3칸에 직접 쓴 게 저장돼요.</p>
+              <textarea value={scrapeReviewsRaw} onChange={e => setScrapeReviewsRaw(e.target.value)}
+                placeholder="쿠팡 상품페이지에서 후기 여러 개 드래그 → 복사 → 여기 붙여넣기"
+                rows={4}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid #E6C366`, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', marginBottom: 8, background: '#fff' }}
+              />
               <button type="button" onClick={async () => {
                 setAiSummarizing(true);
                 try {
-                  const raw = [scrapeRegForm.review1, scrapeRegForm.review2, scrapeRegForm.review3].filter(Boolean).join('\n');
+                  const raw = scrapeReviewsRaw.trim() ||
+                    [scrapeRegForm.review1, scrapeRegForm.review2, scrapeRegForm.review3].filter(Boolean).join('\n') ||
+                    `상품명만: ${scrapeRegItem?.title || ''}`;
                   const res = await fetch('/api/ai/summarize-reviews', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reviews: raw || `상품명만: ${scrapeRegItem?.title || ''}`, productTitle: scrapeRegItem?.title || '' }),
+                    body: JSON.stringify({ reviews: raw, productTitle: scrapeRegItem?.title || '' }),
                   });
                   const json = await res.json();
                   if (json.error) { alert('AI 정리 실패: ' + json.error); return; }
@@ -2819,7 +2826,7 @@ export default function AdminPage() {
                 } catch (e) { alert('AI 호출 실패: ' + e); }
                 setAiSummarizing(false);
               }} disabled={aiSummarizing}
-                style={{ width: '100%', padding: '8px 0', borderRadius: 6, border: 'none', background: aiSummarizing ? C.muted : '#7A5F00', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
+                style={{ width: '100%', padding: '9px 0', borderRadius: 8, border: 'none', background: aiSummarizing ? C.muted : '#7A5F00', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
                 {aiSummarizing ? '✨ 정리 중...' : '✨ GPT로 3줄 정리'}
               </button>
               {[
