@@ -25,22 +25,24 @@ export async function GET(req: NextRequest) {
     if (category && category !== 'all') filtered = filtered.filter(r => r.category === category);
     if (platform) filtered = filtered.filter(r => r.platform === platform);
 
-    // 자동 TOP5 승급:
-    // - section=ranking: recommend + ranking 풀에서 view_count 상위 5개
-    // - section=recommend: 위 TOP5 제외한 recommend 나머지
-    // - 그 외(deal): 해당 섹션만
+    // 자동 TOP5 승급 + 어드민 강제 고정:
+    // - section='ranking'인 상품은 PINNED (강제 고정) — 항상 TOP5에 포함
+    // - 남은 자리는 section='recommend' 중 view_count 상위로 채움
+    // - section=recommend 요청 시: 위 TOP5에 들어간 상품은 제외
+    const pinned = filtered.filter(r => r.section === 'ranking')
+      .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+    const remainingSlots = Math.max(0, 5 - pinned.length);
+    const autoPicks = filtered
+      .filter(r => r.section === 'recommend')
+      .sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0))
+      .slice(0, remainingSlots);
+    const top5 = [...pinned, ...autoPicks].slice(0, 5);
+    const top5Ids = new Set(top5.map(r => r.id));
+
     if (section === 'ranking') {
-      const pool = filtered.filter(r => r.section === 'recommend' || r.section === 'ranking');
-      pool.sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0));
-      filtered = pool.slice(0, 5);
+      filtered = top5;
     } else if (section === 'recommend') {
-      const pool = filtered.filter(r => r.section === 'recommend' || r.section === 'ranking');
-      const top5 = [...pool]
-        .sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0))
-        .slice(0, 5)
-        .map(r => r.id);
-      const top5Set = new Set(top5);
-      filtered = filtered.filter(r => r.section === 'recommend' && !top5Set.has(r.id));
+      filtered = filtered.filter(r => r.section === 'recommend' && !top5Ids.has(r.id));
     } else if (section) {
       filtered = filtered.filter(r => r.section === section);
     }
