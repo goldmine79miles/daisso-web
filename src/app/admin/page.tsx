@@ -828,15 +828,28 @@ export default function AdminPage() {
   }
 
   /* ─── 상품 등록 탭 Partners 검색 ─────────────────────────── */
+  const [regSearchMessage, setRegSearchMessage] = useState('');
   async function regSearch() {
     if (!regSearchKw.trim()) return;
     setRegSearching(true);
+    setRegSearchMessage('');
+    setRegSearchResults([]);
     try {
-      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(regSearchKw)}&limit=20`);
+      // 쿠팡 API limit max=10
+      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(regSearchKw)}&limit=10`);
       const json = await res.json();
-      setRegSearchResults(json.data || []);
+      // Partners 응답: { rCode, rMessage, data: { productData: [...] } } — search 라우트가 그대로 전달
+      const items = json?.data?.productData || (Array.isArray(json?.data) ? json.data : []);
+      if (json?.error) {
+        setRegSearchMessage(`⚠️ 검색 실패: ${json.error}`);
+      } else if (items.length === 0) {
+        setRegSearchMessage('😅 Partners API에 이 키워드로 상품이 없어요. 더 짧은 핵심 키워드로 다시 시도하거나, 수동 등록으로 넘어가세요.');
+      } else {
+        setRegSearchResults(items);
+        setRegSearchMessage(`✅ ${items.length}개 찾음`);
+      }
     } catch (e) {
-      alert('검색 실패: ' + e);
+      setRegSearchMessage('❌ 검색 중 오류: ' + String(e));
     }
     setRegSearching(false);
   }
@@ -1341,6 +1354,11 @@ export default function AdminPage() {
                     {regSearching ? '...' : '조회'}
                   </button>
                 </div>
+                {regSearchMessage && (
+                  <p style={{ fontSize: 12, color: regSearchMessage.startsWith('✅') ? C.green : C.sub, margin: '0 0 10px', padding: '8px 12px', background: C.card, borderRadius: 8, lineHeight: 1.5 }}>
+                    {regSearchMessage}
+                  </p>
+                )}
                 {regSearchResults.length > 0 && (
                   <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, maxHeight: 400, overflowY: 'auto' }}>
                     {regSearchResults.map((item, i) => (
