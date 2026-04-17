@@ -30,7 +30,6 @@ export async function POST(req: NextRequest) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${openaiKey}` },
         body: JSON.stringify({
           model: 'gpt-5-mini',
-          temperature: 0.4,
           response_format: { type: 'json_object' },
           messages: [
             { role: 'system', content: system + ' 응답은 {"reasons": [...]} 형태의 JSON object.' },
