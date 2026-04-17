@@ -87,7 +87,10 @@ interface GoldboxItem {
   discountRate: number;
 }
 
-type TabId = 'products' | 'influencers' | 'sns' | 'goldbox' | 'search' | 'guide';
+type TabId = 'products' | 'register' | 'sns' | 'goldbox' | 'search' | 'categories';
+type SnsSubTab = 'discover' | 'influencer';
+type SearchSource = 'coupang' | 'naver';
+type SectionId = 'ranking' | 'recommend' | 'deal';
 
 interface Influencer {
   id: number;
@@ -127,6 +130,15 @@ interface SnsResult {
   keywords: string[];
 }
 
+interface CategoryRow {
+  id: number;
+  slug: string;
+  name: string;
+  emoji: string;
+  sort_order: number;
+  is_active: boolean;
+}
+
 export default function AdminPage() {
   const [authed, setAuthed] = useState(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('admin_auth') === 'true';
@@ -134,7 +146,9 @@ export default function AdminPage() {
   });
   const [pw, setPw] = useState('');
   const [tab, setTab] = useState<TabId>('products');
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [snsSubTab, setSnsSubTab] = useState<SnsSubTab>('discover');
+  const [searchSource, setSearchSource] = useState<SearchSource>('coupang');
+  const [goldboxSection, setGoldboxSection] = useState<SectionId>('ranking');
 
   // 상품 관리
   const [products, setProducts] = useState<Product[]>([]);
@@ -208,6 +222,15 @@ export default function AdminPage() {
   const [suggestProductId, setSuggestProductId] = useState<number | null>(null);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
+
+  // 카테고리 관리
+  const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [newCatSlug, setNewCatSlug] = useState('');
+  const [newCatName, setNewCatName] = useState('');
+  const [newCatEmoji, setNewCatEmoji] = useState('');
+  const [editingCatId, setEditingCatId] = useState<number | null>(null);
+  const [editCatForm, setEditCatForm] = useState({ slug: '', name: '', emoji: '' });
 
   // SNS
   const [snsUrl, setSnsUrl] = useState('');
@@ -297,7 +320,6 @@ export default function AdminPage() {
       const json = await res.json();
       if (json.data) {
         setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '' });
-        setShowAddForm(false);
         loadProducts();
       }
     } catch (e) {
@@ -360,7 +382,7 @@ export default function AdminPage() {
   }
 
   // 골드박스에서 바로 등록
-  async function addFromGoldbox(item: GoldboxItem) {
+  async function addFromGoldbox(item: GoldboxItem, section: SectionId = 'ranking') {
     setSaving(true);
     try {
       await fetch('/api/products', {
@@ -372,14 +394,15 @@ export default function AdminPage() {
           affiliate_url: item.productUrl,
           platform: 'coupang',
           category: 'all',
-          section: 'ranking',
+          section,
           sale_price: item.productPrice,
           original_price: item.originalPrice,
           discount_rate: item.discountRate,
         }),
       });
       loadProducts();
-      alert(`"${item.productName.slice(0, 20)}..." 랭킹에 등록했어요!`);
+      const sectionLabel = SECTIONS.find(s => s.id === section)?.name || section;
+      alert(`"${item.productName.slice(0, 20)}..." ${sectionLabel}에 등록했어요!`);
     } catch (e) {
       alert('등록 실패: ' + e);
     }
@@ -633,9 +656,35 @@ export default function AdminPage() {
     if (!keyword.trim()) return;
     setSearchLoading(true);
     try {
-      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(keyword)}`);
-      const json = await res.json();
-      setSearchData(json.data || []);
+      if (searchSource === 'coupang') {
+        const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(keyword)}`);
+        const json = await res.json();
+        setSearchData(json.data || []);
+      } else {
+        // 네이버 쇼핑 검색 — 응답 필드를 GoldboxItem 형태로 매핑
+        const res = await fetch(`/api/naver/search?keyword=${encodeURIComponent(keyword)}&display=30`);
+        const json = await res.json();
+        type NaverItem = { title: string; link: string; image: string; salePrice: number; originalPrice: number; platform: string; productId?: string | number; canConvertToMyLink?: boolean };
+        const mapped: GoldboxItem[] = (json.items || []).map((it: NaverItem) => {
+          const sp = Number(it.salePrice) || 0;
+          const op = Number(it.originalPrice) || sp;
+          const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+          return {
+            productId: String(it.productId || it.link),
+            productName: it.title,
+            productPrice: sp,
+            productImage: it.image,
+            productUrl: it.link,
+            categoryName: '',
+            originalPrice: op,
+            discountRate: dr,
+            isRocket: false,
+            _platform: it.platform,
+            _canConvertToMyLink: !!it.canConvertToMyLink,
+          } as GoldboxItem & { _platform?: string; _canConvertToMyLink?: boolean };
+        });
+        setSearchData(mapped);
+      }
     } catch (e) {
       alert('검색 실패: ' + e);
     }
@@ -644,7 +693,7 @@ export default function AdminPage() {
 
   /* ─── 인플루언서 로드 ─────────────────────────── */
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { if (authed && tab === 'influencers') loadInfluencers(); }, [authed, tab]);
+  useEffect(() => { if (authed && tab === 'sns' && snsSubTab === 'influencer') loadInfluencers(); }, [authed, tab, snsSubTab]);
 
   const loadInfluencers = useCallback(async () => {
     setInfLoading(true);
@@ -727,6 +776,79 @@ export default function AdminPage() {
     setSuggestLoading(false);
   }
 
+  /* ─── 카테고리 ─────────────────────────── */
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    try {
+      const res = await fetch('/api/categories?active=all');
+      const json = await res.json();
+      setCategoryRows(json.data || []);
+    } catch {
+      setCategoryRows([]);
+    }
+    setCategoriesLoading(false);
+  }, []);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { if (authed && tab === 'categories') loadCategories(); }, [authed, tab]);
+
+  async function addCategory() {
+    const slug = newCatSlug.trim().toLowerCase();
+    const name = newCatName.trim();
+    const emoji = newCatEmoji.trim();
+    if (!slug || !name) { alert('slug와 이름은 필수예요'); return; }
+    if (!/^[a-z0-9_-]+$/.test(slug)) { alert('slug는 영문 소문자/숫자/_-만 가능해요'); return; }
+    try {
+      const res = await fetch('/api/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, name, emoji }),
+      });
+      const json = await res.json();
+      if (json.error) { alert(json.error); return; }
+      setNewCatSlug(''); setNewCatName(''); setNewCatEmoji('');
+      loadCategories();
+    } catch (e) { alert('추가 실패: ' + e); }
+  }
+
+  async function updateCategory(id: number, patch: Partial<Pick<CategoryRow, 'slug' | 'name' | 'emoji' | 'is_active'>>) {
+    try {
+      await fetch(`/api/categories/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      });
+      loadCategories();
+      setEditingCatId(null);
+    } catch (e) { alert('수정 실패: ' + e); }
+  }
+
+  async function deleteCategory(id: number) {
+    if (!confirm('정말 삭제할까요? (연결된 상품의 category는 남아있지만 홈 카테고리 바에서 사라져요)')) return;
+    try {
+      await fetch(`/api/categories/${id}`, { method: 'DELETE' });
+      loadCategories();
+    } catch (e) { alert('삭제 실패: ' + e); }
+  }
+
+  async function moveCategoryOrder(id: number, direction: 'up' | 'down') {
+    const sorted = [...categoryRows].sort((a, b) => a.sort_order - b.sort_order);
+    const idx = sorted.findIndex(c => c.id === id);
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapIdx < 0 || swapIdx >= sorted.length) return;
+    const orders = sorted.map((item, i) => {
+      if (i === idx) return { id: item.id, sort_order: swapIdx };
+      if (i === swapIdx) return { id: item.id, sort_order: idx };
+      return { id: item.id, sort_order: i };
+    });
+    await fetch('/api/categories/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders }),
+    });
+    loadCategories();
+  }
+
   /* ─── SNS ─────────────────────────── */
   async function analyzeSns() {
     if (!snsUrl.trim()) return;
@@ -799,11 +921,11 @@ export default function AdminPage() {
   /* ─── 탭 ─────────────────────────── */
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'products', label: '상품 관리', count: products.length },
-    { id: 'influencers', label: '인플루언서', count: influencers.length },
-    { id: 'sns', label: 'SNS 발굴' },
+    { id: 'register', label: '상품 등록' },
+    { id: 'categories', label: '카테고리', count: categoryRows.filter(c => c.is_active).length },
+    { id: 'sns', label: 'SNS 탐색' },
     { id: 'goldbox', label: '골드박스', count: goldboxData.length },
     { id: 'search', label: '검색', count: searchData.length },
-    { id: 'guide', label: '가이드' },
   ];
 
   return (
@@ -842,10 +964,10 @@ export default function AdminPage() {
 
       <div style={{ maxWidth: 640, margin: '0 auto' }}>
 
-        {/* ━━━ 상품 관리 탭 ━━━ */}
-        {tab === 'products' && (
+        {/* ━━━ 상품 관리 / 상품 등록 탭 ━━━ */}
+        {(tab === 'products' || tab === 'register') && (
           <div>
-            {/* 링크 변환기 — 등록 없이 내 링크만 뽑기 */}
+            {tab === 'register' && (<>
             <div style={{ margin: '16px 20px 0', padding: 16, background: '#E0F2FE', borderRadius: 16, border: `1px solid #7DD3FC` }}>
               <p style={{ fontSize: 14, fontWeight: 700, color: '#0C4A6E', margin: '0 0 8px' }}>🔗 링크 변환기</p>
               <p style={{ fontSize: 11, color: '#075985', margin: '0 0 10px' }}>쿠팡 링크만 입력 → 내 제휴링크로 즉시 변환 (복사만 하고 등록 안 함)</p>
@@ -1040,7 +1162,9 @@ export default function AdminPage() {
                 </button>
               </div>
             </div>
+            </>)}
 
+            {tab === 'products' && (<>
             {/* 필터 */}
             <div style={{ padding: '16px 20px', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <select value={filterSection} onChange={e => setFilterSection(e.target.value)}
@@ -1071,18 +1195,20 @@ export default function AdminPage() {
                 style={{ padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: healthChecking ? C.bg : C.card, fontSize: 12, fontWeight: 500, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
                 {healthChecking ? '⏳ 체크 중...' : '🔍 상태 체크'}
               </button>
-              <button onClick={() => { setShowAddForm(v => !v); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: showAddForm ? C.red : C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
-                {showAddForm ? '✕ 닫기' : '+ 상품 등록'}
+              <button onClick={() => setTab('register')}
+                style={{ marginLeft: 'auto', padding: '8px 16px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
+                + 새 상품 등록
               </button>
             </div>
 
-            {/* ━━━ 인라인 등록 폼 (상단) ━━━ */}
-            {showAddForm && (
-              <div style={{ padding: '20px', margin: '0 16px 16px', background: C.card, borderRadius: 16, border: `2px solid ${C.primary}`, boxShadow: '0 4px 20px rgba(49,130,246,0.1)' }}>
+            </>)}
+
+            {/* ━━━ 수동 등록 폼 (register 탭에서 항상 표시) ━━━ */}
+            {tab === 'register' && (
+              <div style={{ padding: '20px', margin: '16px', background: C.card, borderRadius: 16, border: `2px solid ${C.primary}`, boxShadow: '0 4px 20px rgba(49,130,246,0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>✏️ 새 상품 등록</h2>
-                  <button onClick={() => setShowAddForm(false)} style={{ border: 'none', background: C.bg, padding: '4px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>닫기</button>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>✏️ 수동 등록</h2>
+                  <button onClick={() => setTab('products')} style={{ border: 'none', background: C.bg, padding: '4px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>관리로</button>
                 </div>
 
             {/* 플랫폼 */}
@@ -1192,6 +1318,7 @@ export default function AdminPage() {
               </div>
             )}
 
+            {tab === 'products' && (<>
             {/* 섹션별 카운트 */}
             <div style={{ padding: '0 20px 12px', display: 'flex', gap: 12 }}>
               {SECTIONS.map(s => {
@@ -1261,7 +1388,7 @@ export default function AdminPage() {
                 <p style={{ fontSize: 40, margin: 0 }}>📦</p>
                 <p style={{ fontSize: 15, fontWeight: 600, color: C.text, marginTop: 12 }}>등록된 상품이 없어요</p>
                 <p style={{ fontSize: 13, color: C.sub, marginTop: 4 }}>상품을 등록하면 앱과 웹에 바로 반영돼요</p>
-                <button onClick={() => { setShowAddForm(true); }}
+                <button onClick={() => setTab('register')}
                   style={{ marginTop: 16, padding: '12px 24px', borderRadius: 10, border: 'none', background: C.primary, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', position: 'relative', zIndex: 10 }}>
                   첫 상품 등록하기
                 </button>
@@ -1333,12 +1460,31 @@ export default function AdminPage() {
                 ))}
               </div>
             )}
+            </>)}
           </div>
         )}
 
-        {/* ━━━ SNS 발굴 탭 ━━━ */}
+        {/* ━━━ SNS 탐색 탭 (발굴 + 인플루언서 서브탭) ━━━ */}
         {tab === 'sns' && (
-          <div style={{ padding: '20px 20px' }}>
+          <div>
+            {/* 서브탭 */}
+            <div style={{ display: 'flex', gap: 6, padding: '16px 20px 0' }}>
+              {([
+                { id: 'discover' as const, label: 'SNS 발굴' },
+                { id: 'influencer' as const, label: '인플루언서' },
+              ]).map(s => {
+                const active = snsSubTab === s.id;
+                return (
+                  <button key={s.id} onClick={() => setSnsSubTab(s.id)}
+                    style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: active ? 'none' : `1px solid ${C.border}`, background: active ? C.primary : C.card, color: active ? '#fff' : C.sub, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {snsSubTab === 'discover' && (
+            <div style={{ padding: '20px 20px' }}>
             {/* 설명 */}
             <div style={{
               padding: '16px 20px', background: `linear-gradient(135deg, #E1306C, #C13584)`,
@@ -1498,6 +1644,8 @@ export default function AdminPage() {
                 </div>
               </div>
             )}
+            </div>
+            )}
           </div>
         )}
 
@@ -1507,7 +1655,21 @@ export default function AdminPage() {
             <div style={{ padding: '20px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                 <PlatformBadge platform="coupang" />
-                <span style={{ fontSize: 13, color: C.sub }}>쿠팡 실시간 인기 상품 → 바로 등록</span>
+                <span style={{ fontSize: 13, color: C.sub }}>쿠팡 실시간 인기 상품 → 섹션 선택 후 등록</span>
+              </div>
+              {/* 섹션 선택 */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                {(['ranking', 'recommend', 'deal'] as const).map(s => {
+                  const label = s === 'ranking' ? '랭킹' : s === 'recommend' ? '추천' : '득템';
+                  const color = s === 'ranking' ? C.primary : s === 'recommend' ? '#10B981' : C.deal;
+                  const active = goldboxSection === s;
+                  return (
+                    <button key={s} onClick={() => setGoldboxSection(s)}
+                      style={{ flex: 1, padding: '8px 0', borderRadius: 8, border: active ? 'none' : `1px solid ${C.border}`, background: active ? color : C.card, color: active ? '#fff' : C.sub, fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
               <button onClick={fetchGoldbox} disabled={goldboxLoading}
                 style={{ width: '100%', padding: '14px 0', borderRadius: 12, border: 'none', background: goldboxLoading ? C.muted : C.coupang, color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
@@ -1527,9 +1689,9 @@ export default function AdminPage() {
                         <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
                       </div>
                     </div>
-                    <button onClick={() => addFromGoldbox(item)} disabled={saving}
-                      style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                      랭킹 등록
+                    <button onClick={() => addFromGoldbox(item, goldboxSection)} disabled={saving}
+                      style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: goldboxSection === 'ranking' ? C.primary : goldboxSection === 'recommend' ? '#10B981' : C.deal, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                      {goldboxSection === 'ranking' ? '랭킹' : goldboxSection === 'recommend' ? '추천' : '득템'} 등록
                     </button>
                   </div>
                 ))}
@@ -1538,14 +1700,27 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ━━━ 검색 탭 ━━━ */}
+        {/* ━━━ 검색 탭 (쿠팡 + 네이버) ━━━ */}
         {tab === 'search' && (
           <div>
             <div style={{ padding: '20px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                <PlatformBadge platform="coupang" />
-                <span style={{ fontSize: 13, color: C.sub }}>쿠팡 검색 → 바로 등록</span>
+              {/* 소스 선택 */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+                {(['coupang', 'naver'] as const).map(src => {
+                  const active = searchSource === src;
+                  const label = src === 'coupang' ? '쿠팡' : '네이버';
+                  const color = src === 'coupang' ? C.coupang : '#03C75A';
+                  return (
+                    <button key={src} onClick={() => { setSearchSource(src); setSearchData([]); }}
+                      style={{ flex: 1, padding: '10px 0', borderRadius: 10, border: active ? 'none' : `1px solid ${C.border}`, background: active ? color : C.card, color: active ? '#fff' : C.sub, fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
+              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 10px' }}>
+                {searchSource === 'coupang' ? '쿠팡 파트너스 검색 — 바로 내 링크로 등록' : '네이버 쇼핑 검색 — 트렌드 파악용 (쿠팡 링크만 등록 가능)'}
+              </p>
               <div style={{ display: 'flex', gap: 8 }}>
                 <input value={keyword} onChange={e => setKeyword(e.target.value)} onKeyDown={e => e.key === 'Enter' && fetchSearch()}
                   placeholder="검색어 (예: 에어팟, 물티슈)"
@@ -1559,29 +1734,175 @@ export default function AdminPage() {
             </div>
             {searchData.length > 0 && (
               <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
-                {searchData.map((item, i) => (
-                  <div key={item.productId || i} style={{ display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
-                    <img src={item.productImage} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{item.productName}</p>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 4 }}>
-                        {item.discountRate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
-                        <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                {searchData.map((item, i) => {
+                  const meta = item as GoldboxItem & { _platform?: string; _canConvertToMyLink?: boolean };
+                  const platform = meta._platform || 'coupang';
+                  const canRegister = searchSource === 'coupang' || platform === 'coupang';
+                  return (
+                    <div key={item.productId || i} style={{ display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center' }}>
+                      <img src={item.productImage} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p style={{ fontSize: 13, fontWeight: 600, margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: C.text }}>{item.productName}</p>
+                        <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginTop: 4, flexWrap: 'wrap' }}>
+                          {searchSource === 'naver' && (
+                            <span style={{ fontSize: 9, fontWeight: 700, color: '#fff', background: platform === 'coupang' ? C.coupang : platform === 'kurly' ? C.kurly : platform === 'naver' ? '#03C75A' : C.sub, padding: '2px 6px', borderRadius: 4 }}>
+                              {platform === 'coupang' ? '쿠팡' : platform === 'kurly' ? '컬리' : platform === 'naver' ? '네이버' : platform === '11st' ? '11번가' : platform === 'gmarket' ? 'G마켓' : platform}
+                            </span>
+                          )}
+                          {item.discountRate > 0 && <span style={{ fontSize: 12, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
+                          <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                        </div>
                       </div>
+                      {canRegister ? (
+                        <button onClick={() => addFromSearch(item)} disabled={saving}
+                          style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                          추천 등록
+                        </button>
+                      ) : (
+                        <span style={{ padding: '8px 12px', borderRadius: 8, background: C.bg, color: C.muted, fontSize: 10, fontWeight: 600, flexShrink: 0, textAlign: 'center', lineHeight: 1.3 }}>
+                          등록 불가<br />(쿠팡 외)
+                        </span>
+                      )}
                     </div>
-                    <button onClick={() => addFromSearch(item)} disabled={saving}
-                      style={{ padding: '8px 14px', borderRadius: 8, border: 'none', background: C.green, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
-                      추천 등록
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
         )}
 
-        {/* ━━━ 인플루언서 탭 ━━━ */}
-        {tab === 'influencers' && (
+        {/* ━━━ 카테고리 관리 탭 ━━━ */}
+        {tab === 'categories' && (
+          <div style={{ padding: '20px 20px' }}>
+            {/* 안내 */}
+            <div style={{ padding: '16px 20px', background: `linear-gradient(135deg, ${C.primary}, #1B6CF2)`, borderRadius: 14, color: '#fff', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>홈 상단 카테고리 관리</h3>
+              <p style={{ fontSize: 12, margin: '6px 0 0', opacity: 0.9, lineHeight: 1.5 }}>
+                앱/웹 홈 상단에 보이는 카테고리예요. 추가/수정/순서/숨김을 여기서 관리해요.
+              </p>
+            </div>
+
+            {/* 실제 앱 프리뷰 — 현재 활성 카테고리만 */}
+            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 14, marginBottom: 16 }}>
+              <p style={{ fontSize: 11, color: C.sub, margin: '0 0 8px', fontWeight: 600 }}>🔍 앱에서 보이는 모습</p>
+              <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'thin' }}>
+                {categoryRows.filter(c => c.is_active).sort((a, b) => a.sort_order - b.sort_order).map(c => (
+                  <div key={c.id} style={{ flexShrink: 0, width: 56, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, padding: 6, borderRadius: 10, background: C.bg }}>
+                    <div style={{ fontSize: 22 }}>{c.emoji || '📁'}</div>
+                    <p style={{ fontSize: 10, fontWeight: 600, margin: 0, color: C.text, whiteSpace: 'nowrap' }}>{c.name}</p>
+                  </div>
+                ))}
+                {categoryRows.filter(c => c.is_active).length === 0 && (
+                  <p style={{ fontSize: 12, color: C.muted, margin: 0, padding: '8px 0' }}>활성 카테고리가 없어요</p>
+                )}
+              </div>
+            </div>
+
+            {/* 새 카테고리 추가 */}
+            <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, padding: 16, marginBottom: 16 }}>
+              <p style={{ fontSize: 13, fontWeight: 700, margin: '0 0 10px', color: C.text }}>➕ 새 카테고리 추가</p>
+              <div style={{ display: 'grid', gridTemplateColumns: '60px 1fr 1fr auto', gap: 8, alignItems: 'center' }}>
+                <input value={newCatEmoji} onChange={e => setNewCatEmoji(e.target.value)}
+                  placeholder="🎁" maxLength={4}
+                  style={{ padding: '10px 8px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 18, textAlign: 'center', fontFamily: 'inherit' }} />
+                <input value={newCatName} onChange={e => setNewCatName(e.target.value)}
+                  placeholder="이름 (예: 디지털)"
+                  style={{ padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit' }} />
+                <input value={newCatSlug} onChange={e => setNewCatSlug(e.target.value.toLowerCase())}
+                  placeholder="slug (영문, 예: digital)"
+                  style={{ padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit' }} />
+                <button onClick={addCategory}
+                  style={{ padding: '10px 16px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  추가
+                </button>
+              </div>
+              <p style={{ fontSize: 10, color: C.muted, margin: '6px 0 0' }}>slug는 상품 카테고리 분류에 사용돼요 (영문 소문자, 숫자, _-만). 한번 만들면 수정은 조심히.</p>
+            </div>
+
+            {/* 카테고리 목록 */}
+            {categoriesLoading ? (
+              <p style={{ textAlign: 'center', color: C.muted, padding: 40, fontSize: 13 }}>불러오는 중...</p>
+            ) : (
+              <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                {[...categoryRows].sort((a, b) => a.sort_order - b.sort_order).map((c, i, arr) => {
+                  const isEditing = editingCatId === c.id;
+                  return (
+                    <div key={c.id} style={{ padding: '12px 14px', borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : 'none', display: 'flex', gap: 10, alignItems: 'center', opacity: c.is_active ? 1 : 0.45 }}>
+                      {/* 순서 조정 */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                        <button onClick={() => moveCategoryOrder(c.id, 'up')} disabled={i === 0}
+                          style={{ border: 'none', background: 'none', cursor: i === 0 ? 'default' : 'pointer', fontSize: 11, color: i === 0 ? C.border : C.muted, padding: 2 }}>▲</button>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: C.muted, textAlign: 'center' }}>{i + 1}</span>
+                        <button onClick={() => moveCategoryOrder(c.id, 'down')} disabled={i === arr.length - 1}
+                          style={{ border: 'none', background: 'none', cursor: i === arr.length - 1 ? 'default' : 'pointer', fontSize: 11, color: i === arr.length - 1 ? C.border : C.muted, padding: 2 }}>▼</button>
+                      </div>
+
+                      {/* 이모지 + 이름 */}
+                      {isEditing ? (
+                        <>
+                          <input value={editCatForm.emoji} onChange={e => setEditCatForm(f => ({ ...f, emoji: e.target.value }))}
+                            maxLength={4}
+                            style={{ width: 48, padding: '8px 6px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 18, textAlign: 'center', flexShrink: 0, fontFamily: 'inherit' }} />
+                          <input value={editCatForm.name} onChange={e => setEditCatForm(f => ({ ...f, name: e.target.value }))}
+                            placeholder="이름" style={{ flex: 1, padding: '8px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', minWidth: 0 }} />
+                          <input value={editCatForm.slug} onChange={e => setEditCatForm(f => ({ ...f, slug: e.target.value.toLowerCase() }))}
+                            placeholder="slug" style={{ width: 100, padding: '8px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit' }} />
+                        </>
+                      ) : (
+                        <>
+                          <div style={{ fontSize: 22, width: 40, textAlign: 'center', flexShrink: 0 }}>{c.emoji || '📁'}</div>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 14, fontWeight: 700, margin: 0, color: C.text }}>{c.name}</p>
+                            <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0', fontFamily: 'monospace' }}>{c.slug}</p>
+                          </div>
+                        </>
+                      )}
+
+                      {/* 액션 */}
+                      <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
+                        {isEditing ? (
+                          <>
+                            <button onClick={() => updateCategory(c.id, { slug: editCatForm.slug, name: editCatForm.name, emoji: editCatForm.emoji })}
+                              style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: C.primary, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                              저장
+                            </button>
+                            <button onClick={() => setEditingCatId(null)}
+                              style={{ padding: '6px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+                              취소
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => { setEditingCatId(c.id); setEditCatForm({ slug: c.slug, name: c.name, emoji: c.emoji }); }}
+                              style={{ padding: '6px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+                              수정
+                            </button>
+                            <button onClick={() => updateCategory(c.id, { is_active: !c.is_active })}
+                              style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: c.is_active ? C.primaryLight : `${C.deal}15`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: c.is_active ? C.primary : C.deal, fontWeight: 600 }}>
+                              {c.is_active ? 'ON' : 'OFF'}
+                            </button>
+                            <button onClick={() => deleteCategory(c.id)}
+                              style={{ padding: '6px 10px', borderRadius: 6, border: 'none', background: `${C.red}10`, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.red }}>
+                              삭제
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+                {categoryRows.length === 0 && (
+                  <div style={{ padding: '40px 20px', textAlign: 'center' }}>
+                    <p style={{ fontSize: 13, color: C.muted, margin: 0 }}>등록된 카테고리가 없어요. 위에서 추가해주세요.</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ━━━ SNS 탐색 → 인플루언서 서브탭 ━━━ */}
+        {tab === 'sns' && snsSubTab === 'influencer' && (
           <div style={{ padding: '20px 20px' }}>
             {/* 설명 */}
             <div style={{ padding: '16px 20px', background: 'linear-gradient(135deg, #FF6B35, #FF8C42)', borderRadius: 14, color: '#fff', marginBottom: 20 }}>
@@ -1848,52 +2169,6 @@ export default function AdminPage() {
           </div>
         )}
 
-        {/* ━━━ 가이드 탭 ━━━ */}
-        {tab === 'guide' && (
-          <div style={{ padding: '20px 16px' }}>
-            <div style={{ padding: '20px 24px', background: `linear-gradient(135deg, ${C.primary}, #1B6CF2)`, borderRadius: 16, color: '#fff', marginBottom: 16 }}>
-              <h2 style={{ fontSize: 17, fontWeight: 800, margin: 0 }}>상품 등록 → 앱/웹 반영</h2>
-              <p style={{ fontSize: 13, margin: '8px 0 0', opacity: 0.85, lineHeight: 1.55 }}>
-                어드민에서 상품을 등록하면 앱과 웹에 바로 반영돼요.<br />
-                섹션별로 배치하고, 순서도 자유롭게 변경할 수 있어요.
-              </p>
-            </div>
-
-            {[
-              { title: '섹션 설명', items: [
-                { label: '랭킹', desc: '앱 홈 "다들 이거 사고 있어요" 캐러셀 + 웹 상단', color: C.deal },
-                { label: '추천', desc: '앱 홈 하단 리스트 + 웹 메인 그리드', color: C.primary },
-                { label: '득템', desc: '앱 "득템" 탭 + 웹 할인 페이지', color: C.green },
-              ]},
-              { title: '플랫폼별 링크', items: [
-                { label: '쿠팡', desc: '골드박스/검색에서 바로 등록 또는 수동 입력. API가 내 제휴 링크 자동 생성', color: C.coupang },
-                { label: '토스쇼핑', desc: '제휴 사이트에서 복사한 내 링크를 그대로 등록', color: C.toss },
-                { label: '컬리', desc: '컬리 제휴 페이지에서 복사한 내 링크를 그대로 등록', color: C.kurly },
-                { label: '테무', desc: '테무 제휴 프로그램에서 복사한 내 링크를 그대로 등록', color: C.temu },
-              ]},
-              { title: '사용 팁', items: [
-                { label: '순서 변경', desc: '상품 관리에서 ▲▼ 버튼으로 순서를 바꿀 수 있어요', color: C.sub },
-                { label: 'ON/OFF', desc: '상품을 숨기거나 보이게 할 수 있어요 (삭제하지 않고)', color: C.sub },
-                { label: '자동 수집', desc: '골드박스 탭에서 쿠팡 인기 상품을 클릭 한번으로 등록', color: C.sub },
-              ]},
-            ].map(group => (
-              <div key={group.title} style={{ background: C.card, borderRadius: 16, marginBottom: 12, overflow: 'hidden', border: `1px solid ${C.border}` }}>
-                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${C.border}` }}>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: C.text }}>{group.title}</h3>
-                </div>
-                {group.items.map(item => (
-                  <div key={item.label} style={{ padding: '12px 20px', borderBottom: `1px solid ${C.border}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-                    <div style={{ width: 4, height: 16, borderRadius: 2, background: item.color, flexShrink: 0, marginTop: 2 }} />
-                    <div>
-                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: C.text }}>{item.label}</p>
-                      <p style={{ fontSize: 12, color: C.sub, margin: '2px 0 0', lineHeight: 1.5 }}>{item.desc}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ))}
-          </div>
-        )}
       </div>
 
       {/* ━━━ 스크래핑 등록 모달 ━━━ */}
