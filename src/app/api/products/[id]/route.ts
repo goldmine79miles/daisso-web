@@ -12,7 +12,7 @@ export async function PUT(req: NextRequest, { params }: Props) {
       title, image_url, affiliate_url, platform,
       category, section, sale_price, original_price,
       discount_rate, sort_order, is_active, review_highlights,
-      pinned,
+      pinned, rating, review_count,
     } = body;
 
     const reviewJson = review_highlights !== undefined
@@ -24,6 +24,8 @@ export async function PUT(req: NextRequest, { params }: Props) {
     try {
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT false`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS ranked_at TIMESTAMP`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(2,1) DEFAULT 0`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0`;
     } catch { /* */ }
 
     // 현재 section 확인 — 랭킹으로 새로 올라가면 ranked_at 갱신
@@ -48,6 +50,8 @@ export async function PUT(req: NextRequest, { params }: Props) {
         sort_order = COALESCE(${sort_order ?? null}, sort_order),
         is_active = COALESCE(${is_active ?? null}, is_active),
         review_highlights = COALESCE(${reviewJson ?? null}, review_highlights),
+        rating = COALESCE(${typeof rating === 'number' ? rating : null}, rating),
+        review_count = COALESCE(${typeof review_count === 'number' ? review_count : null}, review_count),
         pinned = COALESCE(${typeof pinned === 'boolean' ? pinned : null}, pinned),
         ranked_at = CASE
           WHEN ${willDemote} THEN NULL

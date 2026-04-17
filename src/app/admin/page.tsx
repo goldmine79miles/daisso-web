@@ -76,6 +76,9 @@ interface Product {
   pinned?: boolean;
   ranked_at?: string | null;
   view_count?: number;
+  rating?: number;
+  review_count?: number;
+  review_highlights?: string[] | string | null;
 }
 
 interface GoldboxItem {
@@ -180,6 +183,8 @@ export default function AdminPage() {
     review3: '',
   });
   const [aiSummarizing, setAiSummarizing] = useState(false);
+  const [editReviewsRaw, setEditReviewsRaw] = useState('');
+  const [editAiSummarizing, setEditAiSummarizing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // 수정 모달
@@ -349,8 +354,9 @@ export default function AdminPage() {
       const json = await res.json();
       if (json.data) {
         setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '', rating: '', review_count: '', reviews_raw: '', review1: '', review2: '', review3: '' });
-        loadProducts();
+        await loadProducts();
         alert(`✅ "${(json.data.title || '').slice(0, 30)}" 등록 완료!\n앱/웹에 바로 반영됐어요.`);
+        setTab('products');
       } else {
         alert('등록 실패: ' + (json.error || '알 수 없는 오류'));
       }
@@ -362,13 +368,18 @@ export default function AdminPage() {
 
   async function updateProduct(p: Product) {
     try {
+      // review_highlights 배열을 그대로 JSON으로 전송 (API가 배열 받음)
+      const highlights = Array.isArray(p.review_highlights)
+        ? p.review_highlights.map(h => String(h || '').trim()).filter(Boolean)
+        : [];
       await fetch(`/api/products/${p.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(p),
+        body: JSON.stringify({ ...p, review_highlights: highlights, rating: p.rating ?? 0, review_count: p.review_count ?? 0 }),
       });
       loadProducts();
       setEditProduct(null);
+      setEditReviewsRaw('');
       alert(`✅ "${p.title.slice(0, 30)}" 수정 완료!`);
     } catch (e) {
       alert('수정 실패: ' + e);
@@ -1292,9 +1303,42 @@ export default function AdminPage() {
             {/* ━━━ 수동 등록 폼 (register 탭에서 항상 표시) ━━━ */}
             {tab === 'register' && (
               <div style={{ padding: '20px', margin: '16px', background: C.card, borderRadius: 16, border: `2px solid ${C.primary}`, boxShadow: '0 4px 20px rgba(49,130,246,0.1)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                   <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>✏️ 수동 등록</h2>
                   <button onClick={() => setTab('products')} style={{ border: 'none', background: C.bg, padding: '4px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>관리로</button>
+                </div>
+
+                {/* 실시간 미리보기 — 앱에서 보일 모습 */}
+                <div style={{ padding: 12, background: C.bg, borderRadius: 12, border: `1px dashed ${C.border}`, marginBottom: 18 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, margin: '0 0 8px', letterSpacing: 0.5 }}>🔍 앱 미리보기</p>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    {form.image_url ? (
+                      <img src={proxyImg(form.image_url) || form.image_url} alt="" style={{ width: 72, height: 72, borderRadius: 12, objectFit: 'cover', background: C.card, flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 72, height: 72, borderRadius: 12, background: C.card, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>📷</div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, lineHeight: 1.35 }}>
+                        {form.title || '상품명이 여기 표시돼요'}
+                      </p>
+                      <div style={{ display: 'flex', gap: 4, alignItems: 'baseline', marginTop: 6 }}>
+                        {Number(form.discount_rate) > 0 && <span style={{ fontSize: 14, fontWeight: 800, color: C.deal }}>{form.discount_rate}%</span>}
+                        <span style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{Number(form.sale_price)?.toLocaleString() || '0'}원</span>
+                        {Number(form.original_price) > Number(form.sale_price) && (
+                          <span style={{ fontSize: 11, color: C.muted, textDecoration: 'line-through' }}>{Number(form.original_price).toLocaleString()}원</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                        <PlatformBadge platform={form.platform} />
+                        <SectionBadge section={form.section} />
+                        {Number(form.rating) > 0 && (
+                          <span style={{ fontSize: 9, color: '#FFB800', fontWeight: 700, background: '#FFF8E1', padding: '2px 6px', borderRadius: 4 }}>
+                            ★ {Number(form.rating).toFixed(1)}{form.review_count && ` (${Number(form.review_count).toLocaleString()})`}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
             {/* 플랫폼 */}
@@ -1362,12 +1406,47 @@ export default function AdminPage() {
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 14 }}
             />
 
-            {/* 이미지 URL */}
-            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>이미지 URL</label>
+            {/* 이미지 URL + 자동 조회 */}
+            <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <span>이미지 URL</span>
+              <button type="button" onClick={async () => {
+                if (!form.affiliate_url) { alert('제휴 링크를 먼저 입력해주세요'); return; }
+                try {
+                  const res = await fetch('/api/coupang/product-info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: form.affiliate_url, title: form.title }),
+                  });
+                  const json = await res.json();
+                  const d = json?.data;
+                  if (d?.image) {
+                    setForm(f => ({
+                      ...f,
+                      image_url: d.image,
+                      title: f.title || d.title || '',
+                      sale_price: f.sale_price || String(d.salePrice || ''),
+                      original_price: f.original_price || String(d.originalPrice || d.salePrice || ''),
+                      discount_rate: f.discount_rate || String(d.discountRate || ''),
+                    }));
+                    alert('✅ 썸네일 + 가격 자동 조회 완료');
+                  } else {
+                    alert('⚠️ 매칭 상품을 못 찾음. URL이나 제목 확인 후 다시 시도');
+                  }
+                } catch (e) { alert('조회 실패: ' + e); }
+              }}
+                style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: 'none', background: C.coupang, color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                🔍 쿠팡에서 자동 조회
+              </button>
+            </label>
             <input value={form.image_url} onChange={e => setForm({ ...form, image_url: e.target.value })}
-              placeholder="https://... (없으면 비워두세요)"
-              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 14 }}
+              placeholder="https://... (없으면 자동 조회 클릭)"
+              style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 8 }}
             />
+            {form.image_url && (
+              <div style={{ marginBottom: 14 }}>
+                <img src={proxyImg(form.image_url) || form.image_url} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
+              </div>
+            )}
 
             {/* 가격 — 판매가/원가 입력 시 할인율 자동 계산 */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
@@ -1607,7 +1686,15 @@ export default function AdminPage() {
 
                     {/* 액션 */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 4, flexShrink: 0 }}>
-                      <button onClick={() => setEditProduct({ ...p })}
+                      <button onClick={() => {
+                        // review_highlights가 JSON string이면 파싱
+                        let highlights: string[] = [];
+                        if (Array.isArray(p.review_highlights)) highlights = p.review_highlights;
+                        else if (typeof p.review_highlights === 'string') {
+                          try { const parsed = JSON.parse(p.review_highlights); if (Array.isArray(parsed)) highlights = parsed; } catch {}
+                        }
+                        setEditProduct({ ...p, review_highlights: highlights });
+                      }}
                         style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
                         수정
                       </button>
@@ -2641,6 +2728,65 @@ export default function AdminPage() {
                   style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginTop: 4, background: C.bg, color: C.sub }}
                 />
               </div>
+            </div>
+
+            {/* 별점 + 후기수 */}
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'block', marginBottom: 6 }}>별점</label>
+              <StarRating
+                size={24}
+                value={Number(editProduct.rating) || 0}
+                onChange={v => setEditProduct({ ...editProduct, rating: v })}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'block', marginBottom: 6 }}>후기 수</label>
+              <input type="number" value={editProduct.review_count ?? 0}
+                onChange={e => setEditProduct({ ...editProduct, review_count: Number(e.target.value) || 0 })}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              />
+            </div>
+
+            {/* 가성비 이유 3가지 — GPT 정리 + 수동 편집 */}
+            <div style={{ marginBottom: 20, padding: 14, background: `linear-gradient(135deg, #FFF4D6, #FFE8A8)`, borderRadius: 12 }}>
+              <label style={{ fontSize: 12, fontWeight: 700, color: '#7A5F00', display: 'block', marginBottom: 6 }}>✨ 가성비 이유 3가지</label>
+              <textarea value={editReviewsRaw} onChange={e => setEditReviewsRaw(e.target.value)}
+                placeholder="쿠팡 후기 복붙 (선택)"
+                rows={2}
+                style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', marginBottom: 6 }}
+              />
+              <button type="button" onClick={async () => {
+                setEditAiSummarizing(true);
+                try {
+                  const res = await fetch('/api/ai/summarize-reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reviews: editReviewsRaw || `상품명만 있음: ${editProduct.title}`, productTitle: editProduct.title }),
+                  });
+                  const json = await res.json();
+                  if (json.error) { alert('AI 정리 실패: ' + json.error); return; }
+                  const h = json.highlights || [];
+                  setEditProduct(p => p ? { ...p, review_highlights: [h[0] || '', h[1] || '', h[2] || ''] } : p);
+                } catch (e) { alert('AI 호출 실패: ' + e); }
+                setEditAiSummarizing(false);
+              }} disabled={editAiSummarizing}
+                style={{ width: '100%', padding: '8px 0', borderRadius: 6, border: 'none', background: editAiSummarizing ? C.muted : '#7A5F00', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
+                {editAiSummarizing ? '✨ 정리 중...' : '✨ GPT로 3줄 정리'}
+              </button>
+              {[0, 1, 2].map(i => {
+                const highlights: string[] = Array.isArray(editProduct.review_highlights) ? editProduct.review_highlights as string[] : [];
+                return (
+                  <input key={i} type="text" value={highlights[i] || ''}
+                    onChange={e => {
+                      const next: string[] = [...(highlights.length >= 3 ? highlights : [...highlights, '', '', ''].slice(0, 3))];
+                      next[i] = e.target.value;
+                      setEditProduct({ ...editProduct, review_highlights: next });
+                    }}
+                    placeholder={`이유 ${i + 1}`}
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 5, background: '#fff' }}
+                  />
+                );
+              })}
             </div>
 
             <div style={{ display: 'flex', gap: 8 }}>
