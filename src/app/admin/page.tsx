@@ -172,6 +172,8 @@ export default function AdminPage() {
     sale_price: '',
     original_price: '',
     discount_rate: '',
+    rating: '',
+    review_count: '',
   });
   const [saving, setSaving] = useState(false);
 
@@ -334,11 +336,13 @@ export default function AdminPage() {
           sale_price: Number(form.sale_price) || 0,
           original_price: Number(form.original_price) || 0,
           discount_rate: Number(form.discount_rate) || 0,
+          rating: Number(form.rating) || 0,
+          review_count: Number(form.review_count) || 0,
         }),
       });
       const json = await res.json();
       if (json.data) {
-        setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '' });
+        setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '', rating: '', review_count: '' });
         loadProducts();
         alert(`✅ "${(json.data.title || '').slice(0, 30)}" 등록 완료!\n앱/웹에 바로 반영됐어요.`);
       } else {
@@ -935,6 +939,38 @@ export default function AdminPage() {
     );
   }
 
+  // 반쪽 별점 선택기 (0.5 스텝, 최대 5)
+  function StarRating({ value, onChange, size = 28 }: { value: number; onChange: (v: number) => void; size?: number }) {
+    return (
+      <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+        {[1, 2, 3, 4, 5].map(i => {
+          const fillWidth = value >= i ? '100%' : value >= i - 0.5 ? '50%' : '0%';
+          return (
+            <div key={i} style={{ position: 'relative', width: size, height: size }}>
+              {/* 빈 별 (배경) */}
+              <div style={{ position: 'absolute', inset: 0, fontSize: size, lineHeight: 1, color: '#E0E0E0', userSelect: 'none' }}>★</div>
+              {/* 채워진 별 (전경, width 클리핑) */}
+              <div style={{ position: 'absolute', inset: 0, fontSize: size, lineHeight: 1, color: '#FFB800', width: fillWidth, overflow: 'hidden', userSelect: 'none' }}>★</div>
+              {/* 왼쪽 히트존 → 0.5 */}
+              <button type="button" onClick={() => onChange(i - 0.5)} aria-label={`${i - 0.5}점`}
+                style={{ position: 'absolute', top: 0, left: 0, width: '50%', height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} />
+              {/* 오른쪽 히트존 → 풀스타 */}
+              <button type="button" onClick={() => onChange(i)} aria-label={`${i}점`}
+                style={{ position: 'absolute', top: 0, right: 0, width: '50%', height: '100%', border: 'none', background: 'transparent', cursor: 'pointer', padding: 0 }} />
+            </div>
+          );
+        })}
+        <span style={{ marginLeft: 6, fontSize: 13, fontWeight: 700, color: C.text, minWidth: 28 }}>{value ? value.toFixed(1) : '—'}</span>
+        {value > 0 && (
+          <button type="button" onClick={() => onChange(0)}
+            style={{ marginLeft: 4, padding: '2px 8px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 10, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>
+            지우기
+          </button>
+        )}
+      </div>
+    );
+  }
+
   function SectionBadge({ section }: { section: string }) {
     const s = SECTIONS.find(x => x.id === section);
     const colors: Record<string, string> = { ranking: C.deal, recommend: C.primary, deal: C.green };
@@ -1350,6 +1386,24 @@ export default function AdminPage() {
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                 />
               </div>
+            </div>
+
+            {/* 별점 + 후기수 */}
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 8 }}>별점 (반개 단위)</label>
+              <StarRating
+                value={Number(form.rating) || 0}
+                onChange={v => setForm({ ...form, rating: String(v) })}
+              />
+              <p style={{ fontSize: 10, color: C.muted, margin: '4px 0 0' }}>왼쪽 반쪽 = 0.5 · 오른쪽 반쪽 = 정수 (쿠팡에서 본 별점 그대로)</p>
+            </div>
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>후기 수</label>
+              <input type="number" value={form.review_count} onChange={e => setForm({ ...form, review_count: e.target.value })}
+                placeholder="예: 14956"
+                style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+              />
             </div>
 
             <button onClick={saveProduct} disabled={saving}
