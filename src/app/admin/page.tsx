@@ -2547,10 +2547,69 @@ export default function AdminPage() {
 
       {/* ━━━ 스크래핑 등록 모달 ━━━ */}
       {scrapeRegItem && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 440 }}>
-            <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px' }}>상품 등록</h3>
-            <p style={{ fontSize: 13, color: C.sub, margin: '0 0 12px', lineHeight: 1.4 }}>{scrapeRegItem.title.slice(0, 60)}{scrapeRegItem.title.length > 60 ? '...' : ''}</p>
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}
+          onClick={() => setScrapeRegItem(null)}>
+          <div style={{ background: C.card, borderRadius: 20, width: '100%', maxWidth: 440, maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}
+            onClick={e => e.stopPropagation()}>
+            {/* 고정 헤더 — 닫기 버튼 항상 보임 */}
+            <div style={{ padding: '18px 24px 12px', borderBottom: `1px solid ${C.border}`, display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, flexShrink: 0, background: C.card, borderRadius: '20px 20px 0 0' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 4px' }}>상품 등록</h3>
+                <p style={{ fontSize: 12, color: C.sub, margin: 0, lineHeight: 1.4, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const }}>
+                  {scrapeRegItem.title}
+                </p>
+              </div>
+              <button onClick={() => setScrapeRegItem(null)}
+                aria-label="닫기"
+                style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: C.bg, color: C.sub, fontSize: 18, fontWeight: 600, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, fontFamily: 'inherit' }}>
+                ✕
+              </button>
+            </div>
+            {/* 스크롤 영역 */}
+            <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
+
+            {/* 실시간 앱 미리보기 */}
+            <div style={{ padding: 12, background: C.bg, borderRadius: 12, border: `1px dashed ${C.border}`, marginBottom: 16 }}>
+              <p style={{ fontSize: 10, fontWeight: 700, color: C.muted, margin: '0 0 8px', letterSpacing: 0.5 }}>🔍 앱 미리보기</p>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                {scrapeRegItem.image ? (
+                  <img src={proxyImg(scrapeRegItem.image) || scrapeRegItem.image} alt="" style={{ width: 64, height: 64, borderRadius: 12, objectFit: 'cover', background: C.card, flexShrink: 0 }} />
+                ) : (
+                  <div style={{ width: 64, height: 64, borderRadius: 12, background: C.card, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>📷</div>
+                )}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as const, lineHeight: 1.35 }}>
+                    {scrapeRegItem.title || '상품명이 여기 표시돼요'}
+                  </p>
+                  <div style={{ display: 'flex', gap: 4, alignItems: 'baseline', marginTop: 4 }}>
+                    {Number(scrapeRegForm.discount_rate) > 0 && <span style={{ fontSize: 13, fontWeight: 800, color: C.deal }}>{scrapeRegForm.discount_rate}%</span>}
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{Number(scrapeRegForm.sale_price)?.toLocaleString() || '0'}원</span>
+                    {Number(scrapeRegForm.original_price) > Number(scrapeRegForm.sale_price) && (
+                      <span style={{ fontSize: 11, color: C.muted, textDecoration: 'line-through' }}>{Number(scrapeRegForm.original_price).toLocaleString()}원</span>
+                    )}
+                  </div>
+                  <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                    <PlatformBadge platform={scrapeRegItem.platform || 'coupang'} />
+                    <SectionBadge section={scrapeRegForm.section} />
+                    {Number(scrapeRegForm.rating) > 0 && (
+                      <span style={{ fontSize: 9, color: '#FFB800', fontWeight: 700, background: '#FFF8E1', padding: '2px 6px', borderRadius: 4 }}>
+                        ★ {Number(scrapeRegForm.rating).toFixed(1)}{scrapeRegForm.review_count && ` (${Number(scrapeRegForm.review_count).toLocaleString()})`}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ━━━ 섹션 1: 기본 정보 ━━━ */}
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.primary, marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase' }}>📸 기본 정보</div>
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'block', marginBottom: 4 }}>상품명</label>
+            <input value={scrapeRegItem.title}
+              onChange={e => setScrapeRegItem(prev => prev ? { ...prev, title: e.target.value } : prev)}
+              placeholder="상품명 (쿠팡 제품명 그대로 또는 편집)"
+              style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 12 }}
+            />
+
 
             {/* 내 제휴 링크 (편집 가능) — Partners API 결과 그대로 써도 되고, 쿠팡 파트너스에서 생성한 내 간단링크로 교체도 가능 */}
             <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
@@ -2672,19 +2731,19 @@ export default function AdminPage() {
             </div>
 
             {/* 별점 + 리뷰수 */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
-              <div>
-                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>⭐ 별점 (0~5)</label>
-                <input type="number" step="0.1" min="0" max="5" placeholder="예: 4.8" value={scrapeRegForm.rating}
-                  onChange={e => setScrapeRegForm(f => ({ ...f, rating: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
-              </div>
-              <div>
-                <label style={{ fontSize: 12, color: C.sub, fontWeight: 600 }}>리뷰 수</label>
-                <input type="number" placeholder="예: 14956" value={scrapeRegForm.review_count}
-                  onChange={e => setScrapeRegForm(f => ({ ...f, review_count: e.target.value }))}
-                  style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, marginTop: 4 }} />
-              </div>
+            <div style={{ marginBottom: 12 }}>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, display: 'block', marginBottom: 6 }}>⭐ 별점 (반개 단위)</label>
+              <StarRating
+                size={26}
+                value={Number(scrapeRegForm.rating) || 0}
+                onChange={v => setScrapeRegForm(f => ({ ...f, rating: String(v) }))}
+              />
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, display: 'block', marginBottom: 4 }}>리뷰 수</label>
+              <input type="number" placeholder="예: 14956" value={scrapeRegForm.review_count}
+                onChange={e => setScrapeRegForm(f => ({ ...f, review_count: e.target.value }))}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, fontFamily: 'inherit', boxSizing: 'border-box' }} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 20 }}>
@@ -2745,14 +2804,15 @@ export default function AdminPage() {
                   style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, marginBottom: 6, background: '#fff' }} />
               ))}
             </div>
-
-            <div style={{ display: 'flex', gap: 10 }}>
+            </div>
+            {/* 고정 푸터 */}
+            <div style={{ display: 'flex', gap: 10, padding: '14px 24px', borderTop: `1px solid ${C.border}`, background: C.card, borderRadius: '0 0 20px 20px', flexShrink: 0 }}>
               <button onClick={() => setScrapeRegItem(null)}
-                style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: `1px solid ${C.border}`, background: '#fff', fontSize: 14, fontWeight: 600, color: C.sub, cursor: 'pointer' }}>
+                style={{ flex: 1, padding: '12px 0', borderRadius: 12, border: `1px solid ${C.border}`, background: '#fff', fontSize: 14, fontWeight: 600, color: C.sub, cursor: 'pointer', fontFamily: 'inherit' }}>
                 취소
               </button>
               <button onClick={confirmScrapeReg} disabled={saving}
-                style={{ flex: 2, padding: '12px 0', borderRadius: 12, border: 'none', background: C.primary, fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: saving ? 0.5 : 1 }}>
+                style={{ flex: 2, padding: '12px 0', borderRadius: 12, border: 'none', background: C.primary, fontSize: 14, fontWeight: 700, color: '#fff', cursor: 'pointer', opacity: saving ? 0.5 : 1, fontFamily: 'inherit' }}>
                 {saving ? '등록 중...' : '내 제휴링크로 등록'}
               </button>
             </div>
