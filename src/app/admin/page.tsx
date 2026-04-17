@@ -1411,12 +1411,19 @@ export default function AdminPage() {
                       <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
                     </div>
 
-                    {/* 이미지 */}
-                    {p.image_url ? (
-                      <img src={p.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
-                    ) : (
-                      <div style={{ width: 56, height: 56, borderRadius: 10, background: C.bg, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
-                    )}
+                    {/* 이미지 + 내 링크로 바로가기 (상품 존재/가격 확인용) */}
+                    <a href={p.affiliate_url} target="_blank" rel="noopener noreferrer"
+                      title="내 제휴 링크로 상품 보기"
+                      style={{ position: 'relative', flexShrink: 0, display: 'block', textDecoration: 'none' }}>
+                      {p.image_url ? (
+                        <img src={p.image_url} alt="" style={{ width: 56, height: 56, borderRadius: 10, objectFit: 'cover', background: C.bg, display: 'block' }} />
+                      ) : (
+                        <div style={{ width: 56, height: 56, borderRadius: 10, background: C.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
+                      )}
+                      <span style={{ position: 'absolute', bottom: 2, right: 2, width: 18, height: 18, borderRadius: '50%', background: C.primary, color: '#fff', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.25)' }}>
+                        ↗
+                      </span>
+                    </a>
 
                     {/* 정보 */}
                     <div style={{ flex: 1, minWidth: 0 }}>
