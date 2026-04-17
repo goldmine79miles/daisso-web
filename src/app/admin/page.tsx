@@ -146,10 +146,15 @@ interface CategoryRow {
 }
 
 export default function AdminPage() {
-  const [authed, setAuthed] = useState(() => {
-    if (typeof window !== 'undefined') return localStorage.getItem('admin_auth') === 'true' || sessionStorage.getItem('admin_auth') === 'true';
-    return false;
-  });
+  // SSR 하이드레이션 안정 — 초기엔 false, 마운트 후 스토리지 읽음
+  const [authed, setAuthed] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const ok = localStorage.getItem('admin_auth') === 'true' || sessionStorage.getItem('admin_auth') === 'true';
+    setAuthed(ok);
+    setAuthChecked(true);
+  }, []);
   const [pw, setPw] = useState('');
   const [tab, setTab] = useState<TabId>('products');
   const [snsSubTab, setSnsSubTab] = useState<SnsSubTab>('discover');
@@ -215,15 +220,15 @@ export default function AdminPage() {
   // 스크래핑 등록 폼
   const [scrapeRegItem, setScrapeRegItem] = useState<{ title: string; url: string; image: string; platform: string } | null>(null);
   const [quickSection, setQuickSection] = useState<'ranking' | 'recommend' | 'deal'>('deal');
-  const [scrapeRegForm, setScrapeRegForm] = useState<{ sale_price: string; original_price: string; discount_rate: string; section: string; category: string; review1: string; review2: string; review3: string; rating: string; review_count: string }>(() => {
-    const empty = { sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '', rating: '', review_count: '' };
-    if (typeof window === 'undefined') return empty;
+  const [scrapeRegForm, setScrapeRegForm] = useState<{ sale_price: string; original_price: string; discount_rate: string; section: string; category: string; review1: string; review2: string; review3: string; rating: string; review_count: string }>({ sale_price: '', original_price: '', discount_rate: '', section: 'recommend', category: 'all', review1: '', review2: '', review3: '', rating: '', review_count: '' });
+  // SSR 하이드레이션 안정 — 마운트 후 draft 로드
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     try {
       const saved = sessionStorage.getItem('scrapeRegForm_draft');
-      if (saved) return { ...empty, ...JSON.parse(saved) };
+      if (saved) setScrapeRegForm(f => ({ ...f, ...JSON.parse(saved) }));
     } catch {}
-    return empty;
-  });
+  }, []);
   // 폼 변경 시 sessionStorage 자동저장 (창 전환 시 유지)
   useEffect(() => {
     if (scrapeRegItem) {
