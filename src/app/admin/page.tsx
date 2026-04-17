@@ -174,7 +174,12 @@ export default function AdminPage() {
     discount_rate: '',
     rating: '',
     review_count: '',
+    reviews_raw: '',
+    review1: '',
+    review2: '',
+    review3: '',
   });
+  const [aiSummarizing, setAiSummarizing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // 수정 모달
@@ -338,11 +343,12 @@ export default function AdminPage() {
           discount_rate: Number(form.discount_rate) || 0,
           rating: Number(form.rating) || 0,
           review_count: Number(form.review_count) || 0,
+          review_highlights: [form.review1, form.review2, form.review3].map(r => r.trim()).filter(Boolean),
         }),
       });
       const json = await res.json();
       if (json.data) {
-        setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '', rating: '', review_count: '' });
+        setForm({ title: '', image_url: '', affiliate_url: '', platform: 'coupang', category: 'all', section: 'recommend', sale_price: '', original_price: '', discount_rate: '', rating: '', review_count: '', reviews_raw: '', review1: '', review2: '', review3: '' });
         loadProducts();
         alert(`✅ "${(json.data.title || '').slice(0, 30)}" 등록 완료!\n앱/웹에 바로 반영됐어요.`);
       } else {
@@ -1404,6 +1410,43 @@ export default function AdminPage() {
                 placeholder="예: 14956"
                 style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
               />
+            </div>
+
+            {/* 가성비 이유 — GPT 정리 */}
+            <div style={{ marginBottom: 14, padding: 14, background: `linear-gradient(135deg, #FFF4D6, #FFE8A8)`, borderRadius: 12 }}>
+              <label style={{ fontSize: 13, fontWeight: 700, color: '#7A5F00', display: 'block', marginBottom: 6 }}>✨ 가성비 이유 3가지 (상세 모달에 표시)</label>
+              <p style={{ fontSize: 11, color: '#7A5F00', margin: '0 0 8px', lineHeight: 1.5 }}>
+                쿠팡 후기 몇 개 붙여넣고 <b>GPT 정리</b> 누르면 3줄로 정리돼요. 안 누르면 아래 3칸에 직접 쓴 그대로 저장. 비워두고 싶으면 비워두셔도 됩니다.
+              </p>
+              <textarea value={form.reviews_raw} onChange={e => setForm({ ...form, reviews_raw: e.target.value })}
+                placeholder="쿠팡 구매자 후기 여러 개 복붙 (선택 — 없으면 제품명으로 AI가 추측)"
+                rows={3}
+                style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box', marginBottom: 8 }}
+              />
+              <button type="button" onClick={async () => {
+                setAiSummarizing(true);
+                try {
+                  const res = await fetch('/api/ai/summarize-reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reviews: form.reviews_raw || `상품명만 있음 — 적당히 추측: ${form.title}`, productTitle: form.title }),
+                  });
+                  const json = await res.json();
+                  if (json.error) { alert('AI 정리 실패: ' + json.error); return; }
+                  const h = json.highlights || [];
+                  setForm(f => ({ ...f, review1: h[0] || '', review2: h[1] || '', review3: h[2] || '' }));
+                } catch (e) { alert('AI 호출 실패: ' + e); }
+                setAiSummarizing(false);
+              }} disabled={aiSummarizing}
+                style={{ width: '100%', padding: '10px 0', borderRadius: 8, border: 'none', background: aiSummarizing ? C.muted : '#7A5F00', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 10 }}>
+                {aiSummarizing ? '✨ 정리 중...' : '✨ GPT로 3줄 정리'}
+              </button>
+              {(['review1', 'review2', 'review3'] as const).map((k, i) => (
+                <input key={k} type="text" value={form[k]} onChange={e => setForm({ ...form, [k]: e.target.value })}
+                  placeholder={`이유 ${i + 1} (예: 세척력 대비 가격이 합리적이에요)`}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 6, background: '#fff' }}
+                />
+              ))}
             </div>
 
             <button onClick={saveProduct} disabled={saving}
