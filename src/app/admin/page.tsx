@@ -1369,27 +1369,39 @@ export default function AdminPage() {
               style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', marginBottom: 14 }}
             />
 
-            {/* 가격 */}
+            {/* 가격 — 판매가/원가 입력 시 할인율 자동 계산 */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>판매가</label>
-                <input type="number" value={form.sale_price} onChange={e => setForm({ ...form, sale_price: e.target.value })}
+                <input type="number" value={form.sale_price}
+                  onChange={e => {
+                    const sp = Number(e.target.value) || 0;
+                    const op = Number(form.original_price) || 0;
+                    const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                    setForm({ ...form, sale_price: e.target.value, discount_rate: dr > 0 ? String(dr) : form.discount_rate });
+                  }}
                   placeholder="11900"
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                 />
               </div>
               <div style={{ flex: 1 }}>
                 <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>원가</label>
-                <input type="number" value={form.original_price} onChange={e => setForm({ ...form, original_price: e.target.value })}
+                <input type="number" value={form.original_price}
+                  onChange={e => {
+                    const op = Number(e.target.value) || 0;
+                    const sp = Number(form.sale_price) || 0;
+                    const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
+                    setForm({ ...form, original_price: e.target.value, discount_rate: dr > 0 ? String(dr) : form.discount_rate });
+                  }}
                   placeholder="16800"
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
                 />
               </div>
               <div style={{ width: 80 }}>
-                <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>할인%</label>
+                <label style={{ fontSize: 13, fontWeight: 600, color: C.text, display: 'block', marginBottom: 6 }}>할인% <span style={{ fontSize: 10, color: C.muted, fontWeight: 500 }}>자동</span></label>
                 <input type="number" value={form.discount_rate} onChange={e => setForm({ ...form, discount_rate: e.target.value })}
-                  placeholder="29"
-                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+                  placeholder="0"
+                  style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit', background: C.bg }}
                 />
               </div>
             </div>
