@@ -144,7 +144,7 @@ interface CategoryRow {
 
 export default function AdminPage() {
   const [authed, setAuthed] = useState(() => {
-    if (typeof window !== 'undefined') return sessionStorage.getItem('admin_auth') === 'true';
+    if (typeof window !== 'undefined') return localStorage.getItem('admin_auth') === 'true' || sessionStorage.getItem('admin_auth') === 'true';
     return false;
   });
   const [pw, setPw] = useState('');
@@ -275,15 +275,31 @@ export default function AdminPage() {
             </h1>
             <p style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>관리자 비밀번호를 입력해주세요</p>
           </div>
-          <input type="password" value={pw} onChange={e => setPw(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && pw === ADMIN_PASSWORD) { sessionStorage.setItem('admin_auth', 'true'); setAuthed(true); } }}
-            placeholder="비밀번호"
-            style={{ width: '100%', padding: '14px 16px', fontSize: 15, borderRadius: 12, border: `1px solid ${C.border}`, background: C.bg, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
-          />
-          <button onClick={() => { if (pw === ADMIN_PASSWORD) { sessionStorage.setItem('admin_auth', 'true'); setAuthed(true); } }}
-            style={{ width: '100%', marginTop: 12, padding: '14px 0', fontSize: 15, fontWeight: 700, borderRadius: 12, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
-            로그인
-          </button>
+          <form onSubmit={e => {
+            e.preventDefault();
+            if (pw === ADMIN_PASSWORD) {
+              localStorage.setItem('admin_auth', 'true');
+              setAuthed(true);
+            } else {
+              alert('비밀번호가 일치하지 않아요');
+            }
+          }}>
+            {/* 브라우저 자동채움 힌트용 숨김 아이디 — Face ID/iCloud 키체인 트리거 */}
+            <input type="text" name="username" autoComplete="username" defaultValue="daisso-admin" readOnly tabIndex={-1} aria-hidden="true"
+              style={{ position: 'absolute', opacity: 0, height: 0, width: 0, border: 0 }} />
+            <input type="password" name="password" autoComplete="current-password"
+              value={pw} onChange={e => setPw(e.target.value)}
+              placeholder="비밀번호" autoFocus
+              style={{ width: '100%', padding: '14px 16px', fontSize: 15, borderRadius: 12, border: `1px solid ${C.border}`, background: C.bg, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
+            />
+            <button type="submit"
+              style={{ width: '100%', marginTop: 12, padding: '14px 0', fontSize: 15, fontWeight: 700, borderRadius: 12, border: 'none', background: C.primary, color: '#fff', cursor: 'pointer', fontFamily: 'inherit' }}>
+              로그인
+            </button>
+          </form>
+          <p style={{ fontSize: 11, color: C.muted, marginTop: 14, textAlign: 'center', lineHeight: 1.5 }}>
+            브라우저 비번 저장하면 다음부터 Face ID / Touch ID로 자동 입력돼요
+          </p>
         </div>
       </div>
     );
@@ -939,10 +955,23 @@ export default function AdminPage() {
           <h1 style={{ fontSize: 18, fontWeight: 800, margin: 0 }}>
             다있어 <span style={{ color: C.primary }}>Admin</span>
           </h1>
-          <div style={{ display: 'flex', gap: 6 }}>
-            {PLATFORMS.map(p => (
-              <span key={p.id} style={{ fontSize: 9, fontWeight: 700, color: '#fff', background: p.color, padding: '2px 6px', borderRadius: 4 }}>{p.name}</span>
-            ))}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {PLATFORMS.map(p => (
+                <span key={p.id} style={{ fontSize: 9, fontWeight: 700, color: '#fff', background: p.color, padding: '2px 6px', borderRadius: 4 }}>{p.name}</span>
+              ))}
+            </div>
+            <button onClick={() => {
+              if (!confirm('로그아웃 할까요?')) return;
+              localStorage.removeItem('admin_auth');
+              sessionStorage.removeItem('admin_auth');
+              setAuthed(false);
+              setPw('');
+            }}
+              title="로그아웃"
+              style={{ padding: '4px 10px', borderRadius: 6, border: `1px solid ${C.border}`, background: C.card, fontSize: 11, fontWeight: 600, cursor: 'pointer', fontFamily: 'inherit', color: C.sub }}>
+              로그아웃
+            </button>
           </div>
         </div>
         <div style={{ maxWidth: 640, margin: '0 auto', display: 'flex', padding: '0 16px', overflowX: 'auto' }}>
