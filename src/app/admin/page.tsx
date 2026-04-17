@@ -238,6 +238,11 @@ export default function AdminPage() {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [suggestLoading, setSuggestLoading] = useState(false);
 
+  // 상품 등록 탭 — Partners API로 검색해서 등록
+  const [regSearchKw, setRegSearchKw] = useState('');
+  const [regSearchResults, setRegSearchResults] = useState<GoldboxItem[]>([]);
+  const [regSearching, setRegSearching] = useState(false);
+
   // 카테고리 관리
   const [categoryRows, setCategoryRows] = useState<CategoryRow[]>([]);
   const [categoriesLoading, setCategoriesLoading] = useState(false);
@@ -822,6 +827,20 @@ export default function AdminPage() {
     setSuggestLoading(false);
   }
 
+  /* ─── 상품 등록 탭 Partners 검색 ─────────────────────────── */
+  async function regSearch() {
+    if (!regSearchKw.trim()) return;
+    setRegSearching(true);
+    try {
+      const res = await fetch(`/api/coupang/search?keyword=${encodeURIComponent(regSearchKw)}&limit=20`);
+      const json = await res.json();
+      setRegSearchResults(json.data || []);
+    } catch (e) {
+      alert('검색 실패: ' + e);
+    }
+    setRegSearching(false);
+  }
+
   /* ─── 카테고리 ─────────────────────────── */
   const loadCategories = useCallback(async () => {
     setCategoriesLoading(true);
@@ -1300,11 +1319,56 @@ export default function AdminPage() {
 
             </>)}
 
+            {/* ━━━ 쿠팡 Partners 검색해서 등록 (register 탭 전용) ━━━ */}
+            {tab === 'register' && (
+              <div style={{ padding: '18px', margin: '16px', background: `linear-gradient(135deg, #FFF5F5, #FFECEC)`, borderRadius: 16, border: `2px solid ${C.coupang}33` }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                  <PlatformBadge platform="coupang" />
+                  <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0, color: C.text }}>🔍 인플루언서 상품 → 키워드로 조회해서 바로 등록</h3>
+                </div>
+                <p style={{ fontSize: 11, color: C.sub, margin: '0 0 12px', lineHeight: 1.5 }}>
+                  인플루언서가 추천한 상품을 쿠팡 Partners API에 조회 → 나오면 클릭으로 바로 등록 (썸네일/가격/내 딥링크 자동).<br />
+                  상품명 통째로 붙여넣어도 되고, 핵심 키워드만 써도 돼요 (예: "스테인리스 수세미 10개").
+                </p>
+                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                  <input value={regSearchKw} onChange={e => setRegSearchKw(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && regSearch()}
+                    placeholder="상품명/키워드 입력 후 Enter"
+                    style={{ flex: 1, padding: '11px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 13, fontFamily: 'inherit', outline: 'none' }}
+                  />
+                  <button onClick={regSearch} disabled={regSearching}
+                    style={{ padding: '11px 18px', borderRadius: 10, border: 'none', background: regSearching ? C.muted : C.coupang, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
+                    {regSearching ? '...' : '조회'}
+                  </button>
+                </div>
+                {regSearchResults.length > 0 && (
+                  <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, maxHeight: 400, overflowY: 'auto' }}>
+                    {regSearchResults.map((item, i) => (
+                      <div key={item.productId || i} style={{ display: 'flex', gap: 10, padding: '10px 12px', borderBottom: i < regSearchResults.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center' }}>
+                        <img src={item.productImage} alt="" style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover', background: C.bg, flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: 12, fontWeight: 600, margin: 0, color: C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.productName}</p>
+                          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginTop: 3 }}>
+                            {item.discountRate > 0 && <span style={{ fontSize: 11, fontWeight: 800, color: C.deal }}>{item.discountRate}%</span>}
+                            <span style={{ fontSize: 12, fontWeight: 700 }}>{item.productPrice?.toLocaleString()}원</span>
+                          </div>
+                        </div>
+                        <button onClick={() => openScrapeReg(item.productName, item.productUrl, item.productImage || '', 'coupang', 'recommend')} disabled={saving}
+                          style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: C.primary, color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0 }}>
+                          상세 입력 → 등록
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* ━━━ 수동 등록 폼 (register 탭에서 항상 표시) ━━━ */}
             {tab === 'register' && (
               <div style={{ padding: '20px', margin: '16px', background: C.card, borderRadius: 16, border: `2px solid ${C.primary}`, boxShadow: '0 4px 20px rgba(49,130,246,0.1)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>✏️ 수동 등록</h2>
+                  <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0, color: C.text }}>✏️ 수동 등록 (검색 안 될 때)</h2>
                   <button onClick={() => setTab('products')} style={{ border: 'none', background: C.bg, padding: '4px 12px', borderRadius: 8, fontSize: 13, cursor: 'pointer', color: C.sub, fontFamily: 'inherit' }}>관리로</button>
                 </div>
 
@@ -2602,18 +2666,38 @@ export default function AdminPage() {
               </div>
             </div>
 
-            {/* 한줄 후기 (선택) */}
-            <div style={{ marginBottom: 20 }}>
-              <label style={{ fontSize: 12, color: C.sub, fontWeight: 600, display: 'block', marginBottom: 6 }}>한줄 후기 (선택 — 쿠팡 리뷰에서 복붙)</label>
+            {/* 가성비 이유 3가지 — GPT 정리 + 수동 편집 */}
+            <div style={{ marginBottom: 20, padding: 14, background: `linear-gradient(135deg, #FFF4D6, #FFE8A8)`, borderRadius: 12 }}>
+              <label style={{ fontSize: 12, color: '#7A5F00', fontWeight: 700, display: 'block', marginBottom: 6 }}>✨ 가성비 이유 3가지 (상세 모달 노출)</label>
+              <p style={{ fontSize: 10, color: '#7A5F00', margin: '0 0 6px' }}>쿠팡 후기 복붙 → GPT가 3줄 정리. 안 누르면 수동 입력.</p>
+              <button type="button" onClick={async () => {
+                setAiSummarizing(true);
+                try {
+                  const raw = [scrapeRegForm.review1, scrapeRegForm.review2, scrapeRegForm.review3].filter(Boolean).join('\n');
+                  const res = await fetch('/api/ai/summarize-reviews', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reviews: raw || `상품명만: ${scrapeRegItem?.title || ''}`, productTitle: scrapeRegItem?.title || '' }),
+                  });
+                  const json = await res.json();
+                  if (json.error) { alert('AI 정리 실패: ' + json.error); return; }
+                  const h = json.highlights || [];
+                  setScrapeRegForm(f => ({ ...f, review1: h[0] || '', review2: h[1] || '', review3: h[2] || '' }));
+                } catch (e) { alert('AI 호출 실패: ' + e); }
+                setAiSummarizing(false);
+              }} disabled={aiSummarizing}
+                style={{ width: '100%', padding: '8px 0', borderRadius: 6, border: 'none', background: aiSummarizing ? C.muted : '#7A5F00', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit', marginBottom: 8 }}>
+                {aiSummarizing ? '✨ 정리 중...' : '✨ GPT로 3줄 정리'}
+              </button>
               {[
-                { key: 'review1' as const, placeholder: '예: 가격 대비 품질이 좋아서 재구매했어요' },
-                { key: 'review2' as const, placeholder: '예: 배송 빠르고 포장도 꼼꼼해요' },
-                { key: 'review3' as const, placeholder: '예: 이 가격에 이 퀄리티 찾기 힘들어요' },
+                { key: 'review1' as const, placeholder: '이유 1 (예: 가격 대비 품질이 좋아서 재구매했어요)' },
+                { key: 'review2' as const, placeholder: '이유 2 (예: 배송 빠르고 포장도 꼼꼼해요)' },
+                { key: 'review3' as const, placeholder: '이유 3 (예: 이 가격에 이 퀄리티 찾기 힘들어요)' },
               ].map(({ key, placeholder }) => (
                 <input key={key} type="text" placeholder={placeholder}
                   value={scrapeRegForm[key]}
                   onChange={e => setScrapeRegForm(f => ({ ...f, [key]: e.target.value }))}
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, marginBottom: 6 }} />
+                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 13, marginBottom: 6, background: '#fff' }} />
               ))}
             </div>
 
