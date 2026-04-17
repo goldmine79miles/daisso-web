@@ -490,14 +490,30 @@ export default function AdminPage() {
     return 'all';
   }
 
-  function openScrapeReg(title: string, url: string, image: string, platform: string, defaultSection: string = 'recommend') {
+  function openScrapeReg(
+    title: string, url: string, image: string, platform: string,
+    defaultSection: string = 'recommend',
+    prices?: { sale_price?: number; original_price?: number; discount_rate?: number }
+  ) {
     if (!url.includes('coupang.com') && !url.includes('coupa.ng')) {
       alert(`⚠️ 쿠팡 외 링크(${platform})는 자동 등록 불가해요.\n쿠팡에서 같은 상품을 검색해서 등록하세요.`);
       return;
     }
     const autoCategory = autoDetectCategory(title);
+    const sp = Number(prices?.sale_price) || 0;
+    const op = Number(prices?.original_price) || 0;
+    let dr = Number(prices?.discount_rate) || 0;
+    if (!dr && op > sp && sp > 0) dr = Math.round((1 - sp / op) * 100);
     setScrapeRegItem({ title, url, image, platform });
-    setScrapeRegForm({ sale_price: '', original_price: '', discount_rate: '', section: defaultSection, category: autoCategory, review1: '', review2: '', review3: '', rating: '', review_count: '' });
+    setScrapeRegForm({
+      sale_price: sp ? String(sp) : '',
+      original_price: op ? String(op) : (sp ? String(sp) : ''),
+      discount_rate: dr ? String(dr) : '',
+      section: defaultSection,
+      category: autoCategory,
+      review1: '', review2: '', review3: '',
+      rating: '', review_count: '',
+    });
     setMatchedProduct(null);
   }
 
@@ -1365,7 +1381,11 @@ export default function AdminPage() {
                     <div style={{ background: C.card, borderRadius: 12, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
                       {regSearchResults.map((item, i) => (
                         <div key={item.productId || i}
-                          onClick={() => openScrapeReg(item.productName, item.productUrl, item.productImage || '', 'coupang', 'recommend')}
+                          onClick={() => openScrapeReg(item.productName, item.productUrl, item.productImage || '', 'coupang', 'recommend', {
+                            sale_price: item.productPrice,
+                            original_price: item.originalPrice,
+                            discount_rate: item.discountRate,
+                          })}
                           style={{ display: 'flex', gap: 10, padding: '12px 14px', borderBottom: i < regSearchResults.length - 1 ? `1px solid ${C.border}` : 'none', alignItems: 'center', cursor: 'pointer', transition: 'background 0.12s' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = C.primaryLight; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = 'transparent'; }}>
@@ -2559,11 +2579,20 @@ export default function AdminPage() {
                   {scrapeRegItem.title}
                 </p>
               </div>
-              <button onClick={() => setScrapeRegItem(null)}
-                aria-label="닫기"
-                style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: C.bg, color: C.sub, fontSize: 18, fontWeight: 600, cursor: 'pointer', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, fontFamily: 'inherit' }}>
-                ✕
-              </button>
+              <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                {scrapeRegItem.url && (
+                  <a href={scrapeRegItem.url} target="_blank" rel="noopener noreferrer"
+                    title="쿠팡 상품 페이지 새 창으로 열기"
+                    style={{ padding: '6px 12px', borderRadius: 8, background: C.coupang, color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    🌐 쿠팡 열기
+                  </a>
+                )}
+                <button onClick={() => setScrapeRegItem(null)}
+                  aria-label="닫기"
+                  style={{ width: 32, height: 32, borderRadius: 8, border: 'none', background: C.bg, color: C.sub, fontSize: 18, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', lineHeight: 1, fontFamily: 'inherit' }}>
+                  ✕
+                </button>
+              </div>
             </div>
             {/* 스크롤 영역 */}
             <div style={{ padding: 24, overflowY: 'auto', flex: 1 }}>
