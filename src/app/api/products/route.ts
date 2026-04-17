@@ -66,7 +66,8 @@ export async function GET(req: NextRequest) {
     if (section === 'ranking') {
       filtered = top5;
     } else if (section === 'recommend') {
-      filtered = recommendPool.filter(r => !top5Ids.has(r.id));
+      // 추천 섹션은 section='recommend' 상품 전체 보여줌 (TOP5와 중복되어도 OK — 상단 핫픽, 아래 전체 리스트 구조)
+      filtered = filtered.filter(r => r.section === 'recommend');
     } else if (section) {
       filtered = filtered.filter(r => r.section === section);
     }
