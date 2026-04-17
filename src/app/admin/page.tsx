@@ -1365,17 +1365,44 @@ export default function AdminPage() {
                 <p style={{ fontSize: 12, color: '#fff', margin: '0 0 14px', lineHeight: 1.55, opacity: 0.95 }}>
                   인플루언서가 추천한 상품을 <b>상품명/키워드로 조회</b> → 결과 클릭 → 썸네일/가격/내 링크 자동 채워진 상세 모달로 이동
                 </p>
-                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
-                  <input value={regSearchKw} onChange={e => setRegSearchKw(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && regSearch()}
+                <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+                  <input
+                    value={regSearchKw}
+                    onChange={e => setRegSearchKw(e.target.value)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter' && !(e.nativeEvent as KeyboardEvent).isComposing && regSearchKw.trim()) {
+                        e.preventDefault();
+                        regSearch();
+                      }
+                    }}
+                    inputMode="search"
+                    autoComplete="off"
+                    spellCheck={false}
                     placeholder="예: 스테인리스 수세미 10개"
-                    style={{ flex: 1, padding: '14px 16px', borderRadius: 12, border: 'none', fontSize: 14, fontFamily: 'inherit', outline: 'none', fontWeight: 500 }}
+                    style={{
+                      flex: 1,
+                      padding: '15px 18px',
+                      borderRadius: 12,
+                      border: `3px solid #FFE0E0`,
+                      fontSize: 16,
+                      fontFamily: 'inherit',
+                      fontWeight: 600,
+                      color: '#1B1D1F',
+                      background: '#fff',
+                      outline: 'none',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                    }}
+                    onFocus={e => { e.currentTarget.style.borderColor = '#FFF'; e.currentTarget.style.boxShadow = '0 0 0 4px rgba(255,255,255,0.4)'; }}
+                    onBlur={e => { e.currentTarget.style.borderColor = '#FFE0E0'; e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)'; }}
                   />
-                  <button onClick={regSearch} disabled={regSearching}
-                    style={{ padding: '14px 22px', borderRadius: 12, border: 'none', background: regSearching ? '#B91C1C99' : '#7F1D1D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
+                  <button onClick={regSearch} disabled={regSearching || !regSearchKw.trim()}
+                    style={{ padding: '14px 22px', borderRadius: 12, border: 'none', background: regSearching || !regSearchKw.trim() ? '#B91C1C99' : '#7F1D1D', color: '#fff', fontSize: 14, fontWeight: 800, cursor: regSearchKw.trim() && !regSearching ? 'pointer' : 'not-allowed', fontFamily: 'inherit', whiteSpace: 'nowrap' }}>
                     {regSearching ? '조회중...' : '조회'}
                   </button>
                 </div>
+                <p style={{ fontSize: 11, color: '#fff', margin: '0 0 12px', opacity: 0.85 }}>
+                  💡 한글 입력 후 <b>Enter</b> 또는 <b>조회</b> 버튼. 결과 0건이면 키워드 줄여서 재시도.
+                </p>
                 {regSearchMessage && (
                   <p style={{ fontSize: 12, color: regSearchMessage.startsWith('✅') ? C.green : C.sub, margin: '0 0 10px', padding: '8px 12px', background: C.card, borderRadius: 8, lineHeight: 1.5 }}>
                     {regSearchMessage}
