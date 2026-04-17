@@ -2550,7 +2550,26 @@ export default function AdminPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
           <div style={{ background: C.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 440 }}>
             <h3 style={{ fontSize: 17, fontWeight: 700, margin: '0 0 6px' }}>상품 등록</h3>
-            <p style={{ fontSize: 13, color: C.sub, margin: '0 0 16px', lineHeight: 1.4 }}>{scrapeRegItem.title.slice(0, 60)}{scrapeRegItem.title.length > 60 ? '...' : ''}</p>
+            <p style={{ fontSize: 13, color: C.sub, margin: '0 0 12px', lineHeight: 1.4 }}>{scrapeRegItem.title.slice(0, 60)}{scrapeRegItem.title.length > 60 ? '...' : ''}</p>
+
+            {/* 내 제휴 링크 (편집 가능) — Partners API 결과 그대로 써도 되고, 쿠팡 파트너스에서 생성한 내 간단링크로 교체도 가능 */}
+            <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+              <span>내 제휴 링크</span>
+              {scrapeRegItem.url.includes('coupa.ng') || scrapeRegItem.url.startsWith('https://link.coupang.com/a/') ? (
+                <span style={{ fontSize: 10, color: '#16A34A', fontWeight: 700 }}>✓ 내 간단링크 (변환 건너뜀)</span>
+              ) : (
+                <span style={{ fontSize: 10, color: C.muted, fontWeight: 600 }}>저장 시 자동으로 내 딥링크로 변환</span>
+              )}
+            </label>
+            <input
+              value={scrapeRegItem.url}
+              onChange={e => setScrapeRegItem(prev => prev ? { ...prev, url: e.target.value } : prev)}
+              placeholder="Partners API URL 또는 내 간단링크 (link.coupang.com/a/... / coupa.ng/...)"
+              style={{ width: '100%', padding: '9px 12px', borderRadius: 8, border: `1px solid ${C.border}`, fontSize: 12, fontFamily: 'inherit', boxSizing: 'border-box', marginBottom: 12, background: '#fff' }}
+            />
+            <p style={{ fontSize: 10, color: C.muted, margin: '-6px 0 12px' }}>
+              💡 쿠팡 파트너스에서 내가 만든 간단링크를 여기 붙여넣어도 썸네일은 그대로 유지돼요.
+            </p>
 
             {/* 상품 조회 버튼 */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
