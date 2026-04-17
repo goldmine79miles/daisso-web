@@ -1017,6 +1017,9 @@ export default function AdminPage() {
               <div id="linkConvertResult" style={{ marginTop: 8, fontSize: 12, color: '#0C4A6E', minHeight: 20, display: 'flex', alignItems: 'center', gap: 6 }}></div>
             </div>
 
+            {/* ⚠️ 아래 두 블록(쿠팡 빠른등록 + 자동채우기)은 일단 숨김 — 필요시 display 제거 */}
+            <div style={{ display: 'none' }}>
+
             {/* 핫딜 링크 빠른 등록 */}
             <div style={{ margin: '16px 20px', padding: 16, background: `linear-gradient(135deg, ${C.deal}11, ${C.coupang}08)`, borderRadius: 16, border: `1px solid ${C.deal}22` }}>
               <p style={{ fontSize: 14, fontWeight: 700, color: C.text, margin: '0 0 8px' }}>쿠팡 링크 빠른 등록</p>
@@ -1161,6 +1164,7 @@ export default function AdminPage() {
                   자동등록
                 </button>
               </div>
+            </div>
             </div>
             </>)}
 
