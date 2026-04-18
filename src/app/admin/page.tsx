@@ -137,7 +137,7 @@ interface GoldboxItem {
   discountRate: number;
 }
 
-type TabId = 'products' | 'register' | 'sns' | 'goldbox' | 'search' | 'categories';
+type TabId = 'products' | 'register' | 'sns' | 'goldbox' | 'search' | 'categories' | 'stats';
 type SnsSubTab = 'discover' | 'influencer';
 type SearchSource = 'coupang' | 'naver';
 type SectionId = 'ranking' | 'recommend' | 'deal';
@@ -249,6 +249,10 @@ export default function AdminPage() {
   const [shuffleEnabled, setShuffleEnabled] = useState(true);
   const [shuffleHours, setShuffleHours] = useState(2);
   const [shuffleSaving, setShuffleSaving] = useState(false);
+
+  // 번호 직접 입력해서 순서 이동 — authed 조건부 return 전에 선언해야 함 (Rules of Hooks)
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
+  const [orderInput, setOrderInput] = useState('');
 
   // 설정 로드
   useEffect(() => {
@@ -599,10 +603,6 @@ export default function AdminPage() {
     });
     loadProducts();
   }
-
-  // 번호 직접 입력해서 순서 이동
-  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
-  const [orderInput, setOrderInput] = useState('');
 
   async function moveToIndex(p: Product, targetIdx: number) {
     const sameSection = filteredProducts;
@@ -1243,6 +1243,7 @@ export default function AdminPage() {
   /* ─── 탭 ─────────────────────────── */
   const tabs: { id: TabId; label: string; count?: number }[] = [
     { id: 'products', label: '상품 관리', count: products.length },
+    { id: 'stats', label: '조회수' },
     { id: 'register', label: '상품 등록' },
     { id: 'categories', label: '카테고리', count: categoryRows.filter(c => c.is_active).length },
     { id: 'sns', label: 'SNS 탐색' },
@@ -2175,9 +2176,14 @@ export default function AdminPage() {
                             <span style={{ fontSize: 9, fontWeight: 600, color: C.deal, background: `${C.deal}15`, padding: '2px 6px', borderRadius: 4 }}>⏰ 24h</span>
                           )
                         )}
-                        {typeof p.view_count === 'number' && p.view_count > 0 && (
-                          <span style={{ fontSize: 9, color: C.sub, background: C.bg, padding: '2px 6px', borderRadius: 4 }}>👁 {p.view_count}</span>
-                        )}
+                        <span style={{
+                          fontSize: 11, fontWeight: 700,
+                          color: (p.view_count || 0) >= 100 ? C.primary : (p.view_count || 0) > 0 ? C.text : C.muted,
+                          background: (p.view_count || 0) >= 100 ? `${C.primary}15` : C.bg,
+                          padding: '2px 8px', borderRadius: 4,
+                        }}>
+                          👁 {(p.view_count || 0).toLocaleString()}{(p.view_count || 0) >= 1000 ? ' 🔥' : ''}
+                        </span>
                         {p.category !== 'all' && (
                           <span style={{ fontSize: 9, color: C.sub, background: C.bg, padding: '2px 6px', borderRadius: 4 }}>
                             {CATEGORIES.find(c => c.id === p.category)?.name}
@@ -2536,6 +2542,68 @@ export default function AdminPage() {
                     </div>
                   );
                 })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ━━━ 조회수 통계 탭 ━━━ */}
+        {tab === 'stats' && (
+          <div style={{ padding: '20px 20px' }}>
+            <div style={{
+              padding: '16px 20px', background: `linear-gradient(135deg, #3182F6, #5B9CF6)`,
+              borderRadius: 14, color: '#fff', marginBottom: 20,
+            }}>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>👁 상품 조회수 통계</h3>
+              <p style={{ fontSize: 12, margin: '6px 0 0', opacity: 0.9, lineHeight: 1.5 }}>
+                유저가 앱에서 실제로 클릭해서 상세 본 횟수. 큐레이션 의사결정에 활용하세요.
+              </p>
+            </div>
+
+            {productsLoading ? (
+              <p style={{ textAlign: 'center', color: C.muted, padding: 40 }}>불러오는 중...</p>
+            ) : (
+              <div style={{ background: C.card, borderRadius: 14, border: `1px solid ${C.border}`, overflow: 'hidden' }}>
+                {[...products]
+                  .filter(p => p.is_active)
+                  .sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0))
+                  .map((p, i) => {
+                    const views = Number(p.view_count) || 0;
+                    return (
+                      <div key={p.id} style={{
+                        display: 'flex', alignItems: 'center', gap: 12,
+                        padding: '12px 16px', borderBottom: `1px solid ${C.border}`,
+                      }}>
+                        <span style={{
+                          width: 28, textAlign: 'center',
+                          fontSize: 13, fontWeight: 800,
+                          color: i < 3 ? C.primary : C.muted,
+                        }}>
+                          {i + 1}
+                        </span>
+                        <p style={{
+                          flex: 1, margin: 0, fontSize: 13, color: C.text,
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {p.title}
+                        </p>
+                        <span style={{
+                          fontSize: 14, fontWeight: 800,
+                          color: views >= 100 ? C.primary : views > 0 ? C.text : C.muted,
+                          fontVariantNumeric: 'tabular-nums',
+                          minWidth: 60, textAlign: 'right',
+                        }}>
+                          {views.toLocaleString()}
+                          {views >= 1000 ? ' 🔥' : ''}
+                        </span>
+                      </div>
+                    );
+                  })}
+                {products.filter(p => p.is_active).length === 0 && (
+                  <p style={{ textAlign: 'center', color: C.muted, padding: 40, fontSize: 13 }}>
+                    등록된 활성 상품이 없어요
+                  </p>
+                )}
               </div>
             )}
           </div>
