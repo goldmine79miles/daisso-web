@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   DndContext,
-  closestCenter,
+  closestCorners,
   KeyboardSensor,
   PointerSensor,
   TouchSensor,
@@ -580,18 +580,18 @@ export default function AdminPage() {
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1;
     if (swapIdx < 0 || swapIdx >= sameSection.length) return;
 
-    const orders = sameSection.map((item, i) => {
-      if (i === idx) return { id: item.id, sort_order: swapIdx };
-      if (i === swapIdx) return { id: item.id, sort_order: idx };
-      return { id: item.id, sort_order: i };
-    });
+    // 낙관적 UI: 두 아이템 위치 스왑 후 즉시 반영
+    const swapped = [...sameSection];
+    [swapped[idx], swapped[swapIdx]] = [swapped[swapIdx], swapped[idx]];
+    applyOptimisticOrder(swapped);
 
-    await fetch('/api/products/reorder', {
+    // 서버 동기화 — fire-and-forget
+    const orders = swapped.map((item, i) => ({ id: item.id, sort_order: i }));
+    fetch('/api/products/reorder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orders }),
-    });
-    loadProducts();
+    }).catch(() => loadProducts());
   }
 
 
@@ -1982,7 +1982,7 @@ export default function AdminPage() {
               </div>
             ) : (
               <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
-                <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDndDragEnd}>
+                <DndContext sensors={dndSensors} collisionDetection={closestCorners} onDragEnd={handleDndDragEnd}>
                   <SortableContext items={filteredProducts.map(p => p.id)} strategy={verticalListSortingStrategy}>
                     {filteredProducts.map((p, i) => (
                       <SortableProductRow key={p.id} id={p.id}>
