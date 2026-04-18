@@ -600,6 +600,30 @@ export default function AdminPage() {
     loadProducts();
   }
 
+  // 번호 직접 입력해서 순서 이동
+  const [editingOrderId, setEditingOrderId] = useState<number | null>(null);
+  const [orderInput, setOrderInput] = useState('');
+
+  async function moveToIndex(p: Product, targetIdx: number) {
+    const sameSection = filteredProducts;
+    const idx = sameSection.findIndex(x => x.id === p.id);
+    if (idx === -1) return;
+    const clamped = Math.max(0, Math.min(sameSection.length - 1, targetIdx));
+    if (idx === clamped) return;
+
+    const moved = [...sameSection];
+    const [item] = moved.splice(idx, 1);
+    moved.splice(clamped, 0, item);
+
+    applyOptimisticOrder(moved);
+    const orders = moved.map((it, i) => ({ id: it.id, sort_order: i }));
+    fetch('/api/products/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders }),
+    }).catch(() => loadProducts());
+  }
+
   async function moveOrder(p: Product, direction: 'up' | 'down') {
     const sameSection = filteredProducts;
     const idx = sameSection.findIndex(x => x.id === p.id);
@@ -2078,10 +2102,49 @@ export default function AdminPage() {
                             }}
                           >
                             {/* 순서 번호 + 위아래 버튼 (핸들 시각 힌트) */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center', minWidth: 32 }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center', minWidth: 36 }}>
                               <span style={{ fontSize: 13, color: C.muted, lineHeight: 1 }} title="행을 드래그해서 순서 변경">☰</span>
                               <button onClick={e => { e.stopPropagation(); moveOrder(p, 'up'); }} onPointerDown={e => e.stopPropagation()} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
-                              <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
+                              {editingOrderId === p.id ? (
+                                <input
+                                  autoFocus
+                                  type="number"
+                                  value={orderInput}
+                                  onChange={e => setOrderInput(e.target.value)}
+                                  onPointerDown={e => e.stopPropagation()}
+                                  onClick={e => e.stopPropagation()}
+                                  onKeyDown={e => {
+                                    if (e.key === 'Enter') {
+                                      const n = Number(orderInput);
+                                      if (n >= 1) moveToIndex(p, n - 1);
+                                      setEditingOrderId(null);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingOrderId(null);
+                                    }
+                                  }}
+                                  onBlur={() => {
+                                    const n = Number(orderInput);
+                                    if (n >= 1) moveToIndex(p, n - 1);
+                                    setEditingOrderId(null);
+                                  }}
+                                  style={{
+                                    width: 34, padding: '2px 4px', fontSize: 12, fontWeight: 700,
+                                    textAlign: 'center', border: `1px solid ${C.primary}`, borderRadius: 4,
+                                    outline: 'none', fontFamily: 'inherit', color: C.primary,
+                                  }}
+                                />
+                              ) : (
+                                <span
+                                  onClick={e => {
+                                    e.stopPropagation();
+                                    setEditingOrderId(p.id);
+                                    setOrderInput(String(i + 1));
+                                  }}
+                                  onPointerDown={e => e.stopPropagation()}
+                                  title="번호 클릭해서 원하는 순서로 이동"
+                                  style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center', cursor: 'pointer', padding: '2px 6px', borderRadius: 4, minWidth: 20 }}
+                                >{i + 1}</span>
+                              )}
                               <button onClick={e => { e.stopPropagation(); moveOrder(p, 'down'); }} onPointerDown={e => e.stopPropagation()} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
                             </div>
 
