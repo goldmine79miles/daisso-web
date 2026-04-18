@@ -196,6 +196,10 @@ export default function AdminPage() {
   const [healthChecking, setHealthChecking] = useState(false);
   const [healthResult, setHealthResult] = useState<{ checked: number; issues: number; healthy: number; results: { id: number; title: string; issue: string; action: string; severity: string }[]; checkedAt: string } | null>(null);
 
+  // 드래그앤드롭 상품 순서 변경
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+
   // 상품 등록
   const [form, setForm] = useState({
     title: '',
@@ -486,6 +490,38 @@ export default function AdminPage() {
       return { id: item.id, sort_order: i };
     });
 
+    await fetch('/api/products/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders }),
+    });
+    loadProducts();
+  }
+
+  /** 드래그앤드롭 순서 변경 — fromIdx → toIdx */
+  async function dragReorderProducts(fromIdx: number, toIdx: number) {
+    if (fromIdx === toIdx) return;
+    const list = [...filteredProducts];
+    const [moved] = list.splice(fromIdx, 1);
+    list.splice(toIdx, 0, moved);
+    // 낙관적 업데이트: UI 먼저 변경
+    const fullUpdated = [...products];
+    const movedProduct = fullUpdated.find(x => x.id === moved.id);
+    if (movedProduct) {
+      // products 배열 전체에서 해당 아이템 재정렬 (같은 section 내에서만 영향)
+      const sectionIds = new Set(list.map(x => x.id));
+      let cursor = 0;
+      const reordered = fullUpdated.map(p => {
+        if (sectionIds.has(p.id)) {
+          const item = list[cursor++];
+          return { ...p, sort_order: item.sort_order }; // sort_order 유지
+        }
+        return p;
+      });
+      setProducts(reordered);
+    }
+    // 서버 동기화
+    const orders = list.map((item, i) => ({ id: item.id, sort_order: i }));
     await fetch('/api/products/reorder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1864,12 +1900,33 @@ export default function AdminPage() {
             ) : (
               <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
                 {filteredProducts.map((p, i) => (
-                  <div key={p.id} style={{
-                    display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
-                    opacity: p.is_active ? 1 : 0.4,
-                  }}>
-                    {/* 순서 */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                  <div
+                    key={p.id}
+                    draggable
+                    onDragStart={() => setDragIdx(i)}
+                    onDragOver={e => { e.preventDefault(); if (dragOverIdx !== i) setDragOverIdx(i); }}
+                    onDragLeave={() => setDragOverIdx(null)}
+                    onDrop={e => {
+                      e.preventDefault();
+                      if (dragIdx !== null && dragIdx !== i) dragReorderProducts(dragIdx, i);
+                      setDragIdx(null);
+                      setDragOverIdx(null);
+                    }}
+                    onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
+                    style={{
+                      display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
+                      opacity: dragIdx === i ? 0.4 : (p.is_active ? 1 : 0.4),
+                      background: dragOverIdx === i && dragIdx !== i ? `${C.primary}08` : 'transparent',
+                      borderTop: dragOverIdx === i && dragIdx !== null && dragIdx > i ? `2px solid ${C.primary}` : undefined,
+                      borderBottomColor: dragOverIdx === i && dragIdx !== null && dragIdx < i ? C.primary : C.border,
+                      borderBottomWidth: dragOverIdx === i && dragIdx !== null && dragIdx < i ? 2 : 1,
+                      cursor: 'grab',
+                      transition: 'background 0.12s',
+                    }}
+                  >
+                    {/* 순서 + 드래그 핸들 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center' }}>
+                      <span style={{ fontSize: 10, color: C.muted, lineHeight: 1 }} title="드래그해서 순서 변경">⋮⋮</span>
                       <button onClick={() => moveOrder(p, 'up')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
                       <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
                       <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
