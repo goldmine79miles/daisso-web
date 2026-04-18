@@ -153,8 +153,16 @@ export default function AdminPage() {
   const [authChecked, setAuthChecked] = useState(false);
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const ok = localStorage.getItem('admin_auth') === 'true' || sessionStorage.getItem('admin_auth') === 'true';
-    setAuthed(ok);
+    const persisted = localStorage.getItem('admin_auth') === 'true' || sessionStorage.getItem('admin_auth') === 'true';
+    // 자동로그인 상태여도 sessionStorage 토큰이 없으면 mutation API 전부 401 뜸 → 재로그인 강제
+    const hasToken = !!sessionStorage.getItem('admin_token');
+    if (persisted && !hasToken) {
+      localStorage.removeItem('admin_auth');
+      sessionStorage.removeItem('admin_auth');
+      setAuthed(false);
+    } else {
+      setAuthed(persisted);
+    }
     setAuthChecked(true);
   }, []);
 
