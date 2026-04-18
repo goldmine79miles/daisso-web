@@ -225,7 +225,19 @@ export default function AdminPage() {
     return () => { window.fetch = original; };
   }, []);
   const [pw, setPw] = useState('');
-  const [tab, setTab] = useState<TabId>('products');
+  const [tab, setTabRaw] = useState<TabId>('products');
+  // 탭 상태 localStorage 유지 — 페이지 새로고침해도 같은 탭
+  const setTab = useCallback((t: TabId) => {
+    setTabRaw(t);
+    if (typeof window !== 'undefined') try { localStorage.setItem('admin_tab', t); } catch {}
+  }, []);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const saved = localStorage.getItem('admin_tab') as TabId | null;
+    if (saved && ['products', 'stats', 'register', 'sns', 'goldbox', 'search', 'categories'].includes(saved)) {
+      setTabRaw(saved);
+    }
+  }, []);
   const [snsSubTab, setSnsSubTab] = useState<SnsSubTab>('discover');
   const [searchSource, setSearchSource] = useState<SearchSource>('coupang');
   const [goldboxSection, setGoldboxSection] = useState<SectionId>('ranking');
@@ -2552,12 +2564,27 @@ export default function AdminPage() {
           <div style={{ padding: '20px 20px' }}>
             <div style={{
               padding: '16px 20px', background: `linear-gradient(135deg, #3182F6, #5B9CF6)`,
-              borderRadius: 14, color: '#fff', marginBottom: 20,
+              borderRadius: 14, color: '#fff', marginBottom: 12,
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
             }}>
-              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>👁 상품 조회수 통계</h3>
-              <p style={{ fontSize: 12, margin: '6px 0 0', opacity: 0.9, lineHeight: 1.5 }}>
-                유저가 앱에서 실제로 클릭해서 상세 본 횟수. 큐레이션 의사결정에 활용하세요.
-              </p>
+              <div>
+                <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>👁 상품 조회수 통계</h3>
+                <p style={{ fontSize: 12, margin: '6px 0 0', opacity: 0.9, lineHeight: 1.5 }}>
+                  유저가 앱에서 실제로 클릭해서 상세 본 횟수
+                </p>
+              </div>
+              <button
+                onClick={() => loadProducts()}
+                disabled={productsLoading}
+                style={{
+                  padding: '8px 14px', borderRadius: 10, border: 'none',
+                  background: 'rgba(255,255,255,0.2)', color: '#fff',
+                  fontSize: 12, fontWeight: 700, cursor: productsLoading ? 'default' : 'pointer',
+                  fontFamily: 'inherit', whiteSpace: 'nowrap',
+                }}
+              >
+                {productsLoading ? '⏳' : '🔄 새로고침'}
+              </button>
             </div>
 
             {productsLoading ? (
