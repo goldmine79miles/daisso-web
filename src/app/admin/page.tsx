@@ -1,6 +1,48 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+
+// 드래그앤드롭 가능한 상품 행 래퍼 — 모바일 터치 + 데스크탑 마우스 + 키보드 지원
+function SortableProductRow({
+  id,
+  children,
+}: {
+  id: number;
+  children: (handle: { attributes: React.HTMLAttributes<HTMLElement>; listeners: React.DOMAttributes<HTMLElement>; isDragging: boolean }) => React.ReactNode;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+    position: 'relative',
+    background: isDragging ? '#f0f7ff' : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children({ attributes: attributes as React.HTMLAttributes<HTMLElement>, listeners: (listeners || {}) as React.DOMAttributes<HTMLElement>, isDragging })}
+    </div>
+  );
+}
 
 const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || '';
 
@@ -196,9 +238,36 @@ export default function AdminPage() {
   const [healthChecking, setHealthChecking] = useState(false);
   const [healthResult, setHealthResult] = useState<{ checked: number; issues: number; healthy: number; results: { id: number; title: string; issue: string; action: string; severity: string }[]; checkedAt: string } | null>(null);
 
-  // 드래그앤드롭 상품 순서 변경
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
-  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  // @dnd-kit 센서 — 터치 250ms holding, 마우스 5px 이동하면 드래그 시작
+  const dndSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+
+  async function handleDndDragEnd(e: DragEndEvent) {
+    const { active, over } = e;
+    if (!over || active.id === over.id) return;
+    const oldIdx = filteredProducts.findIndex(p => p.id === active.id);
+    const newIdx = filteredProducts.findIndex(p => p.id === over.id);
+    if (oldIdx === -1 || newIdx === -1) return;
+    const newList = arrayMove(filteredProducts, oldIdx, newIdx);
+    // 낙관적 UI: 먼저 순서 반영
+    const sectionIds = new Set(newList.map(x => x.id));
+    let cursor = 0;
+    setProducts(prev => prev.map(p => {
+      if (!sectionIds.has(p.id)) return p;
+      return newList[cursor++];
+    }));
+    // 서버 동기화
+    const orders = newList.map((item, i) => ({ id: item.id, sort_order: i }));
+    await fetch('/api/products/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders }),
+    });
+    loadProducts();
+  }
 
   // 상품 등록
   const [form, setForm] = useState({
@@ -498,37 +567,6 @@ export default function AdminPage() {
     loadProducts();
   }
 
-  /** 드래그앤드롭 순서 변경 — fromIdx → toIdx */
-  async function dragReorderProducts(fromIdx: number, toIdx: number) {
-    if (fromIdx === toIdx) return;
-    const list = [...filteredProducts];
-    const [moved] = list.splice(fromIdx, 1);
-    list.splice(toIdx, 0, moved);
-    // 낙관적 업데이트: UI 먼저 변경
-    const fullUpdated = [...products];
-    const movedProduct = fullUpdated.find(x => x.id === moved.id);
-    if (movedProduct) {
-      // products 배열 전체에서 해당 아이템 재정렬 (같은 section 내에서만 영향)
-      const sectionIds = new Set(list.map(x => x.id));
-      let cursor = 0;
-      const reordered = fullUpdated.map(p => {
-        if (sectionIds.has(p.id)) {
-          const item = list[cursor++];
-          return { ...p, sort_order: item.sort_order }; // sort_order 유지
-        }
-        return p;
-      });
-      setProducts(reordered);
-    }
-    // 서버 동기화
-    const orders = list.map((item, i) => ({ id: item.id, sort_order: i }));
-    await fetch('/api/products/reorder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orders }),
-    });
-    loadProducts();
-  }
 
   // 골드박스에서 바로 등록
   async function addFromGoldbox(item: GoldboxItem, section: SectionId = 'ranking') {
@@ -1899,38 +1937,28 @@ export default function AdminPage() {
               </div>
             ) : (
               <div style={{ background: C.card, borderRadius: 16, margin: '0 16px 24px', overflow: 'hidden', border: `1px solid ${C.border}` }}>
-                {filteredProducts.map((p, i) => (
-                  <div
-                    key={p.id}
-                    draggable
-                    onDragStart={() => setDragIdx(i)}
-                    onDragOver={e => { e.preventDefault(); if (dragOverIdx !== i) setDragOverIdx(i); }}
-                    onDragLeave={() => setDragOverIdx(null)}
-                    onDrop={e => {
-                      e.preventDefault();
-                      if (dragIdx !== null && dragIdx !== i) dragReorderProducts(dragIdx, i);
-                      setDragIdx(null);
-                      setDragOverIdx(null);
-                    }}
-                    onDragEnd={() => { setDragIdx(null); setDragOverIdx(null); }}
-                    style={{
-                      display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
-                      opacity: dragIdx === i ? 0.4 : (p.is_active ? 1 : 0.4),
-                      background: dragOverIdx === i && dragIdx !== i ? `${C.primary}08` : 'transparent',
-                      borderTop: dragOverIdx === i && dragIdx !== null && dragIdx > i ? `2px solid ${C.primary}` : undefined,
-                      borderBottomColor: dragOverIdx === i && dragIdx !== null && dragIdx < i ? C.primary : C.border,
-                      borderBottomWidth: dragOverIdx === i && dragIdx !== null && dragIdx < i ? 2 : 1,
-                      cursor: 'grab',
-                      transition: 'background 0.12s',
-                    }}
-                  >
-                    {/* 순서 + 드래그 핸들 */}
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center' }}>
-                      <span style={{ fontSize: 10, color: C.muted, lineHeight: 1 }} title="드래그해서 순서 변경">⋮⋮</span>
-                      <button onClick={() => moveOrder(p, 'up')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
-                      <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
-                    </div>
+                <DndContext sensors={dndSensors} collisionDetection={closestCenter} onDragEnd={handleDndDragEnd}>
+                  <SortableContext items={filteredProducts.map(p => p.id)} strategy={verticalListSortingStrategy}>
+                    {filteredProducts.map((p, i) => (
+                      <SortableProductRow key={p.id} id={p.id}>
+                        {({ attributes, listeners }) => (
+                          <div style={{
+                            display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
+                            opacity: p.is_active ? 1 : 0.4,
+                            background: '#fff',
+                          }}>
+                            {/* 드래그 핸들 + 순서 버튼 */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center' }}>
+                              <span
+                                {...attributes}
+                                {...listeners}
+                                title="드래그해서 순서 변경 (모바일: 길게 눌러서 드래그)"
+                                style={{ fontSize: 14, color: C.muted, lineHeight: 1, cursor: 'grab', padding: '4px 6px', touchAction: 'none', userSelect: 'none' }}
+                              >⋮⋮</span>
+                              <button onClick={() => moveOrder(p, 'up')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
+                              <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
+                              <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
+                            </div>
 
                     {/* 이미지 + 내 링크로 바로가기 (상품 존재/가격 확인용) */}
                     <a href={p.affiliate_url} target="_blank" rel="noopener noreferrer"
@@ -2006,8 +2034,12 @@ export default function AdminPage() {
                         </button>
                       )}
                     </div>
-                  </div>
-                ))}
+                          </div>
+                        )}
+                      </SortableProductRow>
+                    ))}
+                  </SortableContext>
+                </DndContext>
               </div>
             )}
             </>)}
