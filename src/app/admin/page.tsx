@@ -1572,7 +1572,31 @@ export default function AdminPage() {
                 )}
                 <button type="button" onClick={async () => {
                   if (!form.affiliate_url) { alert('제휴 링크를 먼저 입력해주세요'); return; }
+                  const isToss = /toss\.im\/_m\/|shopping\.toss\.im/.test(form.affiliate_url);
                   try {
+                    if (isToss) {
+                      // 토스쇼핑: OG 메타로 title + image만 (가격은 수동)
+                      const res = await fetch('/api/toss-product-info', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ url: form.affiliate_url }),
+                      });
+                      const json = await res.json();
+                      const d = json?.data;
+                      if (d?.image_url || d?.title) {
+                        setForm(f => ({
+                          ...f,
+                          image_url: d.image_url || f.image_url,
+                          title: f.title || d.title || '',
+                          platform: 'toss',
+                        }));
+                        alert('✅ 토스쇼핑 조회 완료\n(가격은 수동으로 입력해주세요)');
+                      } else {
+                        alert('⚠️ 토스쇼핑 조회 실패: ' + (json?.error || '알 수 없음'));
+                      }
+                      return;
+                    }
+                    // 쿠팡 기본 경로
                     const res = await fetch('/api/coupang/product-info', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -1593,7 +1617,7 @@ export default function AdminPage() {
                     } else {
                       alert('⚠️ 자동 조회 실패.\n→ 옆 "🌐 쿠팡 열기" 눌러 이미지를 드래그해서 아래 박스에 드롭하세요.');
                     }
-                  } catch (e) { alert('조회 실패: ' + e + '\n→ "🌐 쿠팡 열기" 해서 이미지 드래그로 입력하세요.'); }
+                  } catch (e) { alert('조회 실패: ' + e); }
                 }}
                   style={{ fontSize: 11, padding: '4px 10px', borderRadius: 6, border: 'none', background: C.coupang, color: '#fff', fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit' }}>
                   🔍 자동 조회
@@ -1699,7 +1723,7 @@ export default function AdminPage() {
                   const res = await fetch('/api/ai/summarize-reviews', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reviews: form.reviews_raw || `상품명만 있음 — 적당히 추측: ${form.title}`, productTitle: form.title }),
+                    body: JSON.stringify({ reviews: form.reviews_raw || '', productTitle: form.title }),
                   });
                   const json = await res.json();
                   if (json.error) { alert('AI 정리 실패: ' + json.error); return; }
@@ -2878,7 +2902,7 @@ export default function AdminPage() {
                 try {
                   const raw = scrapeReviewsRaw.trim() ||
                     [scrapeRegForm.review1, scrapeRegForm.review2, scrapeRegForm.review3].filter(Boolean).join('\n') ||
-                    `상품명만: ${scrapeRegItem?.title || ''}`;
+                    '';
                   const res = await fetch('/api/ai/summarize-reviews', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2947,8 +2971,31 @@ export default function AdminPage() {
             <label style={{ fontSize: 12, fontWeight: 600, color: C.sub, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span>이미지 URL</span>
               <button type="button" onClick={async () => {
-                if (!editProduct.title || !editProduct.affiliate_url) return;
+                if (!editProduct.affiliate_url) return;
+                const isToss = /toss\.im\/_m\/|shopping\.toss\.im/.test(editProduct.affiliate_url);
                 try {
+                  if (isToss) {
+                    const res = await fetch('/api/toss-product-info', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ url: editProduct.affiliate_url }),
+                    });
+                    const json = await res.json();
+                    const d = json?.data;
+                    if (d?.image_url) {
+                      setEditProduct({
+                        ...editProduct,
+                        image_url: d.image_url,
+                        title: editProduct.title || d.title || '',
+                        platform: 'toss',
+                      });
+                      alert('✅ 토스쇼핑 이미지 불러왔어요');
+                    } else {
+                      alert('⚠️ 토스쇼핑 조회 실패');
+                    }
+                    return;
+                  }
+                  if (!editProduct.title) return;
                   // product-info API: 축약링크 풀어서 productId 추출 후 정확 매칭
                   const res = await fetch('/api/coupang/product-info', {
                     method: 'POST',
