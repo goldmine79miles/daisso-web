@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { searchProducts } from '@/lib/coupang-api';
+import { requireAdmin } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -11,6 +12,8 @@ export const runtime = 'nodejs';
  * - title이 없으면: HTML 스크래핑 시도 (쿠팡이 차단할 수 있음)
  */
 export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { url, title } = await req.json();
     if (!url || !url.includes('coupang.com')) {

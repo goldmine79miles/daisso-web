@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { searchProducts } from '@/lib/coupang-api';
+import { requireAdmin } from '@/lib/adminAuth';
 
 interface HealthIssue {
   id: number;
@@ -201,7 +202,9 @@ async function sendSlackAlert(report: {
 }
 
 // PATCH — 전체 복구 (잘못된 OFF 복구용)
-export async function PATCH() {
+export async function PATCH(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const sql = getDb();
     const result = await sql`UPDATE products SET is_active = true, updated_at = NOW() WHERE is_active = false`;
@@ -212,7 +215,9 @@ export async function PATCH() {
 }
 
 // POST — 수동 체크 (어드민 버튼)
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const report = await runHealthCheck();
     return NextResponse.json({ data: report });

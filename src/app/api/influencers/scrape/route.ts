@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/adminAuth';
 
 /**
  * POST /api/influencers/scrape
@@ -15,6 +16,8 @@ interface ScrapedItem {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { url } = await req.json();
     if (!url || typeof url !== 'string') {

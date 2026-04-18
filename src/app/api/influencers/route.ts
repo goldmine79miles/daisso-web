@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireAdmin } from '@/lib/adminAuth';
 
 /**
  * GET /api/influencers — 인플루언서 링크 목록
@@ -18,6 +19,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const body = await req.json();
     const { name, platform, profile_url, inpock_url, memo } = body;
@@ -48,6 +51,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const body = await req.json();
     const { id, name, inpock_url, profile_url, memo } = body;
@@ -77,6 +82,8 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { searchParams } = new URL(req.url);
     const id = searchParams.get('id');

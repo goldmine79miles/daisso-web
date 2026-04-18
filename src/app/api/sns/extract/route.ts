@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/adminAuth';
 
 /**
  * POST /api/sns/extract
@@ -6,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server';
  * 인스타, 틱톡, 유튜브 등 대부분 플랫폼 지원
  */
 export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { url } = await req.json();
     if (!url || typeof url !== 'string') {

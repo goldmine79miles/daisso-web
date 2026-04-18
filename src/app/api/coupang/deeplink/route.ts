@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createDeeplinks } from '@/lib/coupang-api';
+import { requireAdmin } from '@/lib/adminAuth';
 
 /**
  * 리다이렉트 URL을 따라가서 최종 coupang.com 상품 URL을 얻기
@@ -62,6 +63,8 @@ async function resolveRedirect(url: string): Promise<string> {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const body = await req.json();
     const { urls } = body;

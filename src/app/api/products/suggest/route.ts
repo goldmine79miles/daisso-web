@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireAdmin } from '@/lib/adminAuth';
 
 /**
  * POST /api/products/suggest
@@ -19,6 +20,8 @@ interface Suggestion {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { productId } = await req.json();
     if (!productId) {

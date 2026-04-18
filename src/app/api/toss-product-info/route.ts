@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { checkRateLimit, getClientIP } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -9,6 +10,15 @@ export const runtime = 'nodejs';
  * 가격은 SPA 렌더라 OG에 없음 — 어드민에서 수동 입력
  */
 export async function POST(req: NextRequest) {
+  // Rate limit — IP당 분당 30회 (어드민 정상 사용 충분, 어뷰저 방어)
+  const ip = getClientIP(req);
+  const rl = checkRateLimit(`toss-product-info:${ip}`, { limit: 30, windowSec: 60 });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { error: 'Too many requests' },
+      { status: 429, headers: { 'Retry-After': String(rl.resetIn) } }
+    );
+  }
   try {
     const { url } = await req.json();
     if (!url || typeof url !== 'string') {

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, DbCategory } from '@/lib/db';
+import { requireAdmin } from '@/lib/adminAuth';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
 
 // PUT /api/categories/:id — 수정 (name/emoji/slug/is_active)
 export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { id: idStr } = await ctx.params;
     const id = Number(idStr);
@@ -39,7 +42,9 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
 }
 
 // DELETE /api/categories/:id
-export async function DELETE(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { id: idStr } = await ctx.params;
     const id = Number(idStr);

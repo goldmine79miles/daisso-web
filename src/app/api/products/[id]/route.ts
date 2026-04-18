@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
+import { requireAdmin } from '@/lib/adminAuth';
 
 type Props = { params: Promise<{ id: string }> };
 
 // PUT /api/products/[id] — 상품 수정
 export async function PUT(req: NextRequest, { params }: Props) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { id } = await params;
     const body = await req.json();
@@ -74,7 +77,9 @@ export async function PUT(req: NextRequest, { params }: Props) {
 }
 
 // DELETE /api/products/[id] — 상품 삭제
-export async function DELETE(_req: NextRequest, { params }: Props) {
+export async function DELETE(req: NextRequest, { params }: Props) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const { id } = await params;
     const sql = getDb();

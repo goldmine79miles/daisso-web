@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const ADMIN_PASSWORD = 'star888!!!';
+const ADMIN_PASSWORD = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || '';
 
 // CDN 이미지 프록시 (CloudFront 차단 우회)
 function proxyImg(url?: string): string | undefined {
@@ -156,6 +156,23 @@ export default function AdminPage() {
     const ok = localStorage.getItem('admin_auth') === 'true' || sessionStorage.getItem('admin_auth') === 'true';
     setAuthed(ok);
     setAuthChecked(true);
+  }, []);
+
+  // 어드민 fetch 래퍼 — /api/ 호출에 sessionStorage 토큰을 Bearer로 자동 첨부
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const original = window.fetch.bind(window);
+    window.fetch = (async (input: RequestInfo | URL, init: RequestInit = {}) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.startsWith('/api/') && !url.startsWith('/api/proxy-image') && !url.startsWith('/api/toss-auth') && !url.startsWith('/api/toss-disconnect')) {
+        const token = sessionStorage.getItem('admin_token') || '';
+        if (token) {
+          init.headers = { ...(init.headers || {}), Authorization: `Bearer ${token}` };
+        }
+      }
+      return original(input as any, init);
+    }) as typeof window.fetch;
+    return () => { window.fetch = original; };
   }, []);
   const [pw, setPw] = useState('');
   const [tab, setTab] = useState<TabId>('products');
@@ -334,6 +351,7 @@ export default function AdminPage() {
             e.preventDefault();
             if (pw === ADMIN_PASSWORD) {
               localStorage.setItem('admin_auth', 'true');
+              sessionStorage.setItem('admin_token', pw); // 서버 mutation API Bearer 토큰
               setAuthed(true);
             } else {
               alert('비밀번호가 일치하지 않아요');
@@ -1091,6 +1109,7 @@ export default function AdminPage() {
               if (!confirm('로그아웃 할까요?')) return;
               localStorage.removeItem('admin_auth');
               sessionStorage.removeItem('admin_auth');
+              sessionStorage.removeItem('admin_token');
               setAuthed(false);
               setPw('');
             }}

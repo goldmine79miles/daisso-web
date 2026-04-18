@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/db';
+import { requireAdmin } from '@/lib/adminAuth';
 
 // GET /api/products?section=ranking&category=all&platform=coupang&active=all
 export async function GET(req: NextRequest) {
@@ -84,6 +85,8 @@ export async function GET(req: NextRequest) {
 
 // POST /api/products — 상품 등록
 export async function POST(req: NextRequest) {
+  const auth = requireAdmin(req);
+  if (auth) return auth;
   try {
     const body = await req.json();
     const {
