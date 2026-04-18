@@ -1,6 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/db';
 import { requireAdmin } from '@/lib/adminAuth';
+import { getShuffleConfig } from '@/lib/settings';
+
+/** 2시간 단위 시드로 결정적 셔플 — 같은 2시간 window에선 모든 유저가 같은 순서 */
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const out = [...arr];
+  let s = seed || 1;
+  const rand = () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+  for (let i = out.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
 
 // GET /api/products?section=ranking&category=all&platform=coupang&active=all
 export async function GET(req: NextRequest) {
@@ -71,6 +87,20 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter(r => r.section === 'recommend');
     } else if (section) {
       filtered = filtered.filter(r => r.section === section);
+    }
+
+    // 어드민에서 설정한 주기로 자동 셔플 — TOP5(ranking) 제외 나머지만
+    // 어드민도 동일 순서 보게 해서 "현재 공개 순서" 확인 가능
+    const shuffleCfg = await getShuffleConfig();
+    if (shuffleCfg.enabled && section !== 'ranking') {
+      const bucketMs = shuffleCfg.intervalHours * 60 * 60 * 1000;
+      const bucket = Math.floor(Date.now() / bucketMs);
+      const rankingItems = filtered.filter(r => top5Ids.has(r.id) || r.section === 'ranking');
+      const othersShuffled = seededShuffle(
+        filtered.filter(r => !top5Ids.has(r.id) && r.section !== 'ranking'),
+        bucket,
+      );
+      filtered = [...rankingItems, ...othersShuffled];
     }
 
     return NextResponse.json({ data: filtered });

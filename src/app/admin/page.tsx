@@ -245,6 +245,37 @@ export default function AdminPage() {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // 자동 셔플 설정
+  const [shuffleEnabled, setShuffleEnabled] = useState(true);
+  const [shuffleHours, setShuffleHours] = useState(2);
+  const [shuffleSaving, setShuffleSaving] = useState(false);
+
+  // 설정 로드
+  useEffect(() => {
+    if (!authed) return;
+    fetch('/api/settings').then(r => r.json()).then(j => {
+      if (j?.data) {
+        setShuffleEnabled(j.data.shuffle_enabled);
+        setShuffleHours(j.data.shuffle_interval_hours);
+      }
+    }).catch(() => {});
+  }, [authed]);
+
+  async function saveShuffleSettings(enabled: boolean, hours: number) {
+    setShuffleSaving(true);
+    try {
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shuffle_enabled: enabled, shuffle_interval_hours: hours }),
+      });
+      // 설정 바뀌면 상품 리스트도 새로 받아야 순서 반영
+      loadProducts();
+    } finally {
+      setShuffleSaving(false);
+    }
+  }
+
   async function handleDndDragEnd(e: DragEndEvent) {
     const { active, over } = e;
     if (!over || active.id === over.id) return;
@@ -1949,7 +1980,59 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* 셔플 버튼 — TOP5 제외 나머지 무작위 섞기 */}
+            {/* 자동 셔플 설정 카드 */}
+            {!productsLoading && (
+              <div style={{
+                margin: '0 16px 12px', padding: '14px 16px',
+                background: C.card, border: `1px solid ${C.border}`, borderRadius: 12,
+                display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+              }}>
+                <div style={{ flex: 1, minWidth: 180 }}>
+                  <p style={{ fontSize: 13, fontWeight: 700, margin: 0, color: C.text }}>🔀 자동 셔플</p>
+                  <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>
+                    TOP5 제외 상품을 설정한 주기마다 자동으로 섞어 노출해요
+                  </p>
+                </div>
+                {/* 토글 */}
+                <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                  <input
+                    type="checkbox"
+                    checked={shuffleEnabled}
+                    disabled={shuffleSaving}
+                    onChange={e => {
+                      const v = e.target.checked;
+                      setShuffleEnabled(v);
+                      saveShuffleSettings(v, shuffleHours);
+                    }}
+                    style={{ width: 16, height: 16 }}
+                  />
+                  <span style={{ fontSize: 12, fontWeight: 600, color: shuffleEnabled ? C.primary : C.muted }}>
+                    {shuffleEnabled ? 'ON' : 'OFF'}
+                  </span>
+                </label>
+                {/* 시간 입력 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <input
+                    type="number"
+                    min={1}
+                    max={168}
+                    value={shuffleHours}
+                    disabled={!shuffleEnabled || shuffleSaving}
+                    onChange={e => setShuffleHours(Math.max(1, Math.min(168, Number(e.target.value) || 2)))}
+                    onBlur={() => saveShuffleSettings(shuffleEnabled, shuffleHours)}
+                    style={{
+                      width: 60, padding: '6px 8px', borderRadius: 6,
+                      border: `1px solid ${C.border}`, fontSize: 13, textAlign: 'center',
+                      fontFamily: 'inherit', outline: 'none',
+                      background: shuffleEnabled ? C.card : C.bg,
+                    }}
+                  />
+                  <span style={{ fontSize: 12, color: C.sub }}>시간마다</span>
+                </div>
+              </div>
+            )}
+
+            {/* 셔플 버튼 — 지금 바로 한 번 섞기 */}
             {!productsLoading && filteredProducts.filter(p => p.section !== 'ranking').length >= 2 && (
               <div style={{ margin: '0 16px 12px', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
@@ -1960,9 +2043,9 @@ export default function AdminPage() {
                     cursor: 'pointer', fontFamily: 'inherit',
                     display: 'flex', alignItems: 'center', gap: 6,
                   }}
-                  title="TOP5 제외한 나머지 상품 순서 무작위 섞기"
+                  title="TOP5 제외한 나머지 상품 순서 무작위 섞기 (수동)"
                 >
-                  🎲 셔플
+                  🎲 지금 섞기
                 </button>
               </div>
             )}
