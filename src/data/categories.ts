@@ -13,4 +13,6 @@ export const categories: Category[] = [
   { slug: 'baby', name: '육아', emoji: '👶', color: '#FF5722' },
   { slug: 'sports', name: '스포츠', emoji: '⚽', color: '#607D8B' },
   { slug: 'pet', name: '반려동물', emoji: '🐾', color: '#795548' },
+  { slug: 'car', name: '차량용품', emoji: '🚗', color: '#1E88E5' },
+  { slug: 'hobby', name: '취미', emoji: '🎨', color: '#F06292' },
 ];

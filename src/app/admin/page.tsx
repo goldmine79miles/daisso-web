@@ -52,6 +52,8 @@ const CATEGORIES = [
   { id: 'baby', name: '육아' },
   { id: 'sports', name: '스포츠' },
   { id: 'pet', name: '반려동물' },
+  { id: 'car', name: '차량용품' },
+  { id: 'hobby', name: '취미' },
 ];
 
 const SECTIONS = [
