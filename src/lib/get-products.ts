@@ -43,6 +43,23 @@ export async function getDbProducts(section?: string): Promise<DbProduct[]> {
 }
 
 /**
+ * DB에서 카테고리별 활성 상품 조회
+ */
+export async function getDbProductsByCategory(category: string): Promise<DbProduct[]> {
+  try {
+    const sql = getDb();
+    const rows = await sql`
+      SELECT * FROM products
+      WHERE is_active = true AND category = ${category}
+      ORDER BY sort_order ASC, created_at DESC
+    `;
+    return rows as DbProduct[];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * DB에서 단일 상품 조회 (id: 숫자)
  */
 export async function getDbProductById(id: number): Promise<DbProduct | null> {
