@@ -31,13 +31,11 @@ export async function GET(req: NextRequest) {
   try {
     // neon은 tagged template만 지원 → 전체 조회 후 JS 필터
     const rows = await sql`SELECT * FROM products ORDER BY sort_order ASC, created_at DESC`;
+    const all = rows as Array<Record<string, unknown>>;
 
-    let filtered = rows as Array<Record<string, unknown>>;
-
-    // 기본: active만 (어드민에서 active=all로 호출하면 전체)
-    if (active !== 'all') {
-      filtered = filtered.filter(r => r.is_active === true);
-    }
+    // 어드민이든 공개든 동일한 "활성 상품 순서"를 먼저 계산
+    // 어드민은 끝에 비활성 상품을 붙임 → 유저가 보는 순서 + 비활성 하단 확인
+    let filtered = all.filter(r => r.is_active === true);
 
     if (category && category !== 'all') filtered = filtered.filter(r => r.category === category);
     if (platform) filtered = filtered.filter(r => r.platform === platform);
@@ -90,7 +88,7 @@ export async function GET(req: NextRequest) {
     }
 
     // 어드민에서 설정한 주기로 자동 셔플 — TOP5(ranking) 제외 나머지만
-    // 어드민도 동일 순서 보게 해서 "현재 공개 순서" 확인 가능
+    // 셔플은 "활성 상품" 기준으로만 계산 → 공개/어드민 순서 완벽 일치
     const shuffleCfg = await getShuffleConfig();
     if (shuffleCfg.enabled && section !== 'ranking') {
       const bucketMs = shuffleCfg.intervalHours * 60 * 60 * 1000;
@@ -101,6 +99,17 @@ export async function GET(req: NextRequest) {
         bucket,
       );
       filtered = [...rankingItems, ...othersShuffled];
+    }
+
+    // 어드민 모드(active=all): 활성 상품 순서 + 비활성 상품을 뒤에 추가
+    if (active === 'all') {
+      let inactive = all.filter(r => r.is_active === false);
+      if (category && category !== 'all') inactive = inactive.filter(r => r.category === category);
+      if (platform) inactive = inactive.filter(r => r.platform === platform);
+      if (section && section !== 'ranking') inactive = inactive.filter(r => r.section === section);
+      // 비활성은 자연 순서 유지
+      inactive.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+      filtered = [...filtered, ...inactive];
     }
 
     return NextResponse.json({ data: filtered });
