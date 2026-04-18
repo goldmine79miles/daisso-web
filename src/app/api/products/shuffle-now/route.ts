@@ -36,11 +36,8 @@ export async function POST(req: NextRequest) {
       await sql`UPDATE products SET sort_order = ${i}, updated_at = NOW() WHERE id = ${shuffled[i].id}`;
     }
 
-    // 현재 bucket 기록 → auto-shuffle 재실행 방지 (다음 bucket 경계까지)
-    const cfg = await getShuffleConfig();
-    const bucketMs = cfg.intervalHours * 60 * 60 * 1000;
-    const currentBucket = Math.floor(Date.now() / bucketMs);
-    await setSetting('shuffle_bucket', String(currentBucket));
+    // 마지막 셔플 시각 기록 → auto-shuffle이 interval 지나기 전엔 건들지 않음
+    await setSetting('shuffle_at', String(Date.now()));
 
     return NextResponse.json({ data: { shuffled: shuffled.length } });
   } catch (e) {

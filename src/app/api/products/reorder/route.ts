@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb } from '@/lib/db';
 import { requireAdmin } from '@/lib/adminAuth';
+import { setSetting } from '@/lib/settings';
 
 // POST /api/products/reorder — 순서 일괄 변경
 // body: { orders: [{ id: 1, sort_order: 0 }, { id: 2, sort_order: 1 }, ...] }
@@ -17,6 +18,9 @@ export async function POST(req: NextRequest) {
     for (const { id, sort_order } of orders) {
       await sql`UPDATE products SET sort_order = ${sort_order}, updated_at = NOW() WHERE id = ${id}`;
     }
+
+    // 어드민이 수동으로 순서 바꾼 것도 "최근 셔플"로 간주 → 다음 auto-shuffle 지연
+    await setSetting('shuffle_at', String(Date.now()));
 
     return NextResponse.json({ success: true });
   } catch (e) {

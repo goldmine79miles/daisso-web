@@ -19,37 +19,39 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
 }
 
 /**
- * 자동 셔플 lazy 트리거 — GET 요청 시점에 bucket 바뀌었으면 DB sort_order 재배치.
- * 여러 요청이 동시에 와도 같은 bucket → 같은 시드 → 같은 결과라서 멱등.
- * 어드민 수동 "지금 섞기"는 sort_order + shuffle_bucket 둘 다 업데이트하므로
- * 다음 bucket 경계가 오기 전엔 수동 순서 유지.
+ * 자동 셔플 lazy 트리거 — "마지막 셔플 시각 + interval시간 >= 지금" 일 때만 실행.
+ * bucket 경계 대신 실제 경과 시간 기반이라, 수동 셔플 직후에도 풀 interval 보장됨.
+ * 수동 "지금 섞기"는 shuffle_at을 현재 시각으로 기록하므로 다음 auto는 N시간 후에만 트리거.
  */
 async function maybeAutoShuffle() {
   const cfg = await getShuffleConfig();
   if (!cfg.enabled) return;
-  const bucketMs = cfg.intervalHours * 60 * 60 * 1000;
-  const currentBucket = Math.floor(Date.now() / bucketMs);
+
   const settings = await getAllSettings();
-  const savedBucket = Number(settings.shuffle_bucket) || 0;
-  if (currentBucket <= savedBucket) return; // 아직 셔플할 시점 아님
+  const lastShuffleAt = Number(settings.shuffle_at) || 0;
+  const intervalMs = cfg.intervalHours * 60 * 60 * 1000;
+  const now = Date.now();
+
+  // 마지막 셔플 이후 interval 시간 안 지났으면 건너뜀 (로그인/재방문 영향 없음)
+  if (lastShuffleAt > 0 && now - lastShuffleAt < intervalMs) return;
 
   // 셔플 대상: 활성 + non-ranking + 고정 핀 아닌 것
   const sql = getDb();
   const rows = await sql`SELECT id FROM products WHERE is_active = true AND section != 'ranking' AND (pinned IS NULL OR pinned = false) ORDER BY sort_order ASC, created_at DESC`;
   const list = rows as Array<{ id: number }>;
   if (list.length < 2) {
-    await setSetting('shuffle_bucket', String(currentBucket));
+    await setSetting('shuffle_at', String(now));
     return;
   }
 
-  const shuffled = seededShuffle(list, currentBucket);
-  // CASE WHEN 구문으로 한 번에 업데이트
+  // 시드: 현재 interval bucket (같은 시간대 병렬 요청은 같은 결과 → 멱등)
+  const bucket = Math.floor(now / intervalMs);
+  const shuffled = seededShuffle(list, bucket);
   try {
-    // 개별 UPDATE (트랜잭션) — Neon은 간단하게 처리
     for (let i = 0; i < shuffled.length; i++) {
       await sql`UPDATE products SET sort_order = ${i}, updated_at = NOW() WHERE id = ${shuffled[i].id}`;
     }
-    await setSetting('shuffle_bucket', String(currentBucket));
+    await setSetting('shuffle_at', String(now));
   } catch (e) {
     console.error('[auto-shuffle]', e);
   }
