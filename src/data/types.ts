@@ -10,7 +10,9 @@ export type CategorySlug =
   | 'beauty'
   | 'baby'
   | 'sports'
-  | 'pet';
+  | 'pet'
+  | 'car'
+  | 'hobby';
 
 export interface Category {
   slug: CategorySlug;
