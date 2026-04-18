@@ -1692,7 +1692,8 @@ export default function AdminPage() {
                     const sp = Number(e.target.value) || 0;
                     const op = Number(form.original_price) || 0;
                     const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
-                    setForm({ ...form, sale_price: e.target.value, discount_rate: dr > 0 ? String(dr) : form.discount_rate });
+                    // 항상 재계산 — 가격 같거나 판매가가 원가보다 크면 0으로 리셋 (이전 stale값 유지 금지)
+                    setForm({ ...form, sale_price: e.target.value, discount_rate: dr > 0 ? String(dr) : '' });
                   }}
                   placeholder="11900"
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
@@ -1705,7 +1706,7 @@ export default function AdminPage() {
                     const op = Number(e.target.value) || 0;
                     const sp = Number(form.sale_price) || 0;
                     const dr = op > sp && sp > 0 ? Math.round((1 - sp / op) * 100) : 0;
-                    setForm({ ...form, original_price: e.target.value, discount_rate: dr > 0 ? String(dr) : form.discount_rate });
+                    setForm({ ...form, original_price: e.target.value, discount_rate: dr > 0 ? String(dr) : '' });
                   }}
                   placeholder="16800"
                   style={{ width: '100%', padding: '12px 14px', borderRadius: 10, border: `1px solid ${C.border}`, fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'inherit' }}
