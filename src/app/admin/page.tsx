@@ -1573,10 +1573,13 @@ export default function AdminPage() {
                 <button type="button" onClick={async () => {
                   if (!form.affiliate_url) { alert('제휴 링크를 먼저 입력해주세요'); return; }
                   const isToss = /toss\.im\/_m\/|shopping\.toss\.im/.test(form.affiliate_url);
+                  const isKurly = /kurly\.com/.test(form.affiliate_url);
                   try {
-                    if (isToss) {
-                      // 토스쇼핑: OG 메타로 title + image만 (가격은 수동)
-                      const res = await fetch('/api/toss-product-info', {
+                    if (isToss || isKurly) {
+                      // 토스/컬리: OG 메타로 title + image만 (가격은 수동)
+                      const endpoint = isToss ? '/api/toss-product-info' : '/api/kurly-product-info';
+                      const platformLabel = isToss ? '토스쇼핑' : '컬리';
+                      const res = await fetch(endpoint, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ url: form.affiliate_url }),
@@ -1588,11 +1591,11 @@ export default function AdminPage() {
                           ...f,
                           image_url: d.image_url || f.image_url,
                           title: f.title || d.title || '',
-                          platform: 'toss',
+                          platform: isToss ? 'toss' : 'kurly',
                         }));
-                        alert('✅ 토스쇼핑 조회 완료\n(가격은 수동으로 입력해주세요)');
+                        alert(`✅ ${platformLabel} 조회 완료\n(가격은 수동으로 입력해주세요)`);
                       } else {
-                        alert('⚠️ 토스쇼핑 조회 실패: ' + (json?.error || '알 수 없음'));
+                        alert(`⚠️ ${platformLabel} 조회 실패: ` + (json?.error || '알 수 없음'));
                       }
                       return;
                     }
@@ -2973,9 +2976,12 @@ export default function AdminPage() {
               <button type="button" onClick={async () => {
                 if (!editProduct.affiliate_url) return;
                 const isToss = /toss\.im\/_m\/|shopping\.toss\.im/.test(editProduct.affiliate_url);
+                const isKurly = /kurly\.com/.test(editProduct.affiliate_url);
                 try {
-                  if (isToss) {
-                    const res = await fetch('/api/toss-product-info', {
+                  if (isToss || isKurly) {
+                    const endpoint = isToss ? '/api/toss-product-info' : '/api/kurly-product-info';
+                    const platformLabel = isToss ? '토스쇼핑' : '컬리';
+                    const res = await fetch(endpoint, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
                       body: JSON.stringify({ url: editProduct.affiliate_url }),
@@ -2987,11 +2993,11 @@ export default function AdminPage() {
                         ...editProduct,
                         image_url: d.image_url,
                         title: editProduct.title || d.title || '',
-                        platform: 'toss',
+                        platform: isToss ? 'toss' : 'kurly',
                       });
-                      alert('✅ 토스쇼핑 이미지 불러왔어요');
+                      alert(`✅ ${platformLabel} 이미지 불러왔어요`);
                     } else {
-                      alert('⚠️ 토스쇼핑 조회 실패');
+                      alert(`⚠️ ${platformLabel} 조회 실패`);
                     }
                     return;
                   }
