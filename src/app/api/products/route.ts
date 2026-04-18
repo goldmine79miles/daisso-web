@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDb, initTables } from '@/lib/db';
 import { requireAdmin } from '@/lib/adminAuth';
-import { getShuffleConfig } from '@/lib/settings';
+import { getShuffleConfig, getAllSettings, setSetting } from '@/lib/settings';
 
-/** 2시간 단위 시드로 결정적 셔플 — 같은 2시간 window에선 모든 유저가 같은 순서 */
+/** 결정적 셔플 — bucket을 시드로 사용 */
 function seededShuffle<T>(arr: T[], seed: number): T[] {
   const out = [...arr];
   let s = seed || 1;
@@ -18,6 +18,43 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return out;
 }
 
+/**
+ * 자동 셔플 lazy 트리거 — GET 요청 시점에 bucket 바뀌었으면 DB sort_order 재배치.
+ * 여러 요청이 동시에 와도 같은 bucket → 같은 시드 → 같은 결과라서 멱등.
+ * 어드민 수동 "지금 섞기"는 sort_order + shuffle_bucket 둘 다 업데이트하므로
+ * 다음 bucket 경계가 오기 전엔 수동 순서 유지.
+ */
+async function maybeAutoShuffle() {
+  const cfg = await getShuffleConfig();
+  if (!cfg.enabled) return;
+  const bucketMs = cfg.intervalHours * 60 * 60 * 1000;
+  const currentBucket = Math.floor(Date.now() / bucketMs);
+  const settings = await getAllSettings();
+  const savedBucket = Number(settings.shuffle_bucket) || 0;
+  if (currentBucket <= savedBucket) return; // 아직 셔플할 시점 아님
+
+  // 셔플 대상: 활성 + non-ranking + 고정 핀 아닌 것
+  const sql = getDb();
+  const rows = await sql`SELECT id FROM products WHERE is_active = true AND section != 'ranking' AND (pinned IS NULL OR pinned = false) ORDER BY sort_order ASC, created_at DESC`;
+  const list = rows as Array<{ id: number }>;
+  if (list.length < 2) {
+    await setSetting('shuffle_bucket', String(currentBucket));
+    return;
+  }
+
+  const shuffled = seededShuffle(list, currentBucket);
+  // CASE WHEN 구문으로 한 번에 업데이트
+  try {
+    // 개별 UPDATE (트랜잭션) — Neon은 간단하게 처리
+    for (let i = 0; i < shuffled.length; i++) {
+      await sql`UPDATE products SET sort_order = ${i}, updated_at = NOW() WHERE id = ${shuffled[i].id}`;
+    }
+    await setSetting('shuffle_bucket', String(currentBucket));
+  } catch (e) {
+    console.error('[auto-shuffle]', e);
+  }
+}
+
 // GET /api/products?section=ranking&category=all&platform=coupang&active=all
 export async function GET(req: NextRequest) {
   const { searchParams } = req.nextUrl;
@@ -29,6 +66,9 @@ export async function GET(req: NextRequest) {
   const sql = getDb();
 
   try {
+    // 자동 셔플 — bucket 바뀌었으면 DB에 새 순서 기록 (요청에 따라 lazy 실행)
+    await maybeAutoShuffle();
+
     // neon은 tagged template만 지원 → 전체 조회 후 JS 필터
     const rows = await sql`SELECT * FROM products ORDER BY sort_order ASC, created_at DESC`;
     const all = rows as Array<Record<string, unknown>>;
@@ -87,19 +127,8 @@ export async function GET(req: NextRequest) {
       filtered = filtered.filter(r => r.section === section);
     }
 
-    // 어드민에서 설정한 주기로 자동 셔플 — TOP5(ranking) 제외 나머지만
-    // 셔플은 "활성 상품" 기준으로만 계산 → 공개/어드민 순서 완벽 일치
-    const shuffleCfg = await getShuffleConfig();
-    if (shuffleCfg.enabled && section !== 'ranking') {
-      const bucketMs = shuffleCfg.intervalHours * 60 * 60 * 1000;
-      const bucket = Math.floor(Date.now() / bucketMs);
-      const rankingItems = filtered.filter(r => top5Ids.has(r.id) || r.section === 'ranking');
-      const othersShuffled = seededShuffle(
-        filtered.filter(r => !top5Ids.has(r.id) && r.section !== 'ranking'),
-        bucket,
-      );
-      filtered = [...rankingItems, ...othersShuffled];
-    }
+    // 셔플은 이미 maybeAutoShuffle에서 DB sort_order로 반영됨 → 여기선 순서 조작 없음
+    // TOP5는 top5 로직으로 이미 계산되어 있고, 나머지는 sort_order 그대로
 
     // 어드민 모드(active=all): 활성 상품 순서 + 비활성 상품을 뒤에 추가
     if (active === 'all') {

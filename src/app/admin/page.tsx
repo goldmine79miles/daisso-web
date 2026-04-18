@@ -305,26 +305,21 @@ export default function AdminPage() {
   }
 
   /**
-   * 셔플 — 랭킹(TOP5) 제외 나머지만 무작위 순서로 섞음.
-   * 랭킹 섹션 상품은 자기 위치 고수, 비랭킹 상품들끼리 자리 교환.
+   * 셔플 — 서버에서 원자적으로 실행 (DB 순서 변경 + shuffle_bucket 기록).
+   * 다음 자동 셔플 bucket 경계까지 이 순서 유지됨.
    */
   async function shuffleFilteredProducts() {
     const nonRanking = filteredProducts.filter(p => p.section !== 'ranking');
     if (nonRanking.length < 2) return;
-    if (!confirm(`TOP5(랭킹) 제외한 ${nonRanking.length}개 상품을 무작위로 섞을까요?`)) return;
-    // 비랭킹만 셔플
-    const shuffledNonRanking = [...nonRanking].sort(() => Math.random() - 0.5);
-    let cursor = 0;
-    const merged = filteredProducts.map(p =>
-      p.section === 'ranking' ? p : shuffledNonRanking[cursor++]
-    );
-    applyOptimisticOrder(merged);
-    const orders = merged.map((item, i) => ({ id: item.id, sort_order: i }));
-    fetch('/api/products/reorder', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orders }),
-    }).catch(() => loadProducts());
+    if (!confirm(`TOP5(랭킹) 제외한 ${nonRanking.length}개 상품을 무작위로 섞을까요?\n프론트에도 즉시 반영됩니다.`)) return;
+    try {
+      const res = await fetch('/api/products/shuffle-now', { method: 'POST' });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      // 서버 셔플 완료 → 최신 순서 재조회
+      loadProducts();
+    } catch (e) {
+      alert('셔플 실패: ' + String(e));
+    }
   }
 
   // 상품 등록
