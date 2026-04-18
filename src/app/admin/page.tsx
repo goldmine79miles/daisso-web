@@ -238,10 +238,10 @@ export default function AdminPage() {
   const [healthChecking, setHealthChecking] = useState(false);
   const [healthResult, setHealthResult] = useState<{ checked: number; issues: number; healthy: number; results: { id: number; title: string; issue: string; action: string; severity: string }[]; checkedAt: string } | null>(null);
 
-  // @dnd-kit 센서 — 터치 250ms holding, 마우스 5px 이동하면 드래그 시작
+  // @dnd-kit 센서 — 마우스 8px 이동으로 드래그 시작 (버튼 클릭과 구분), 터치 250ms 홀드
   const dndSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 5 } }),
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 250, tolerance: 8 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
@@ -1942,22 +1942,24 @@ export default function AdminPage() {
                     {filteredProducts.map((p, i) => (
                       <SortableProductRow key={p.id} id={p.id}>
                         {({ attributes, listeners }) => (
-                          <div style={{
-                            display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
-                            opacity: p.is_active ? 1 : 0.4,
-                            background: '#fff',
-                          }}>
-                            {/* 드래그 핸들 + 순서 버튼 */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center' }}>
-                              <span
-                                {...attributes}
-                                {...listeners}
-                                title="드래그해서 순서 변경 (모바일: 길게 눌러서 드래그)"
-                                style={{ fontSize: 14, color: C.muted, lineHeight: 1, cursor: 'grab', padding: '4px 6px', touchAction: 'none', userSelect: 'none' }}
-                              >⋮⋮</span>
-                              <button onClick={() => moveOrder(p, 'up')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
+                          <div
+                            {...attributes}
+                            {...listeners}
+                            style={{
+                              display: 'flex', gap: 12, padding: '14px 16px', borderBottom: `1px solid ${C.border}`, alignItems: 'center',
+                              opacity: p.is_active ? 1 : 0.4,
+                              background: '#fff',
+                              cursor: 'grab',
+                              touchAction: 'none',
+                              userSelect: 'none',
+                            }}
+                          >
+                            {/* 순서 번호 + 위아래 버튼 (핸들 시각 힌트) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0, alignItems: 'center', minWidth: 32 }}>
+                              <span style={{ fontSize: 13, color: C.muted, lineHeight: 1 }} title="행을 드래그해서 순서 변경">☰</span>
+                              <button onClick={e => { e.stopPropagation(); moveOrder(p, 'up'); }} onPointerDown={e => e.stopPropagation()} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▲</button>
                               <span style={{ fontSize: 12, fontWeight: 700, color: i < 3 ? C.primary : C.muted, textAlign: 'center' }}>{i + 1}</span>
-                              <button onClick={() => moveOrder(p, 'down')} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
+                              <button onClick={e => { e.stopPropagation(); moveOrder(p, 'down'); }} onPointerDown={e => e.stopPropagation()} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: 12, color: C.muted, padding: 2 }}>▼</button>
                             </div>
 
                     {/* 이미지 + 내 링크로 바로가기 (상품 존재/가격 확인용) */}
