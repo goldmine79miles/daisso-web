@@ -252,21 +252,48 @@ export default function AdminPage() {
     const newIdx = filteredProducts.findIndex(p => p.id === over.id);
     if (oldIdx === -1 || newIdx === -1) return;
     const newList = arrayMove(filteredProducts, oldIdx, newIdx);
-    // 낙관적 UI: 먼저 순서 반영
+    // 낙관적 UI 즉시 반영 (서버 재조회 안 함 — 깜빡임 방지)
+    applyOptimisticOrder(newList);
+    // 서버는 fire-and-forget 동기화
+    const orders = newList.map((item, i) => ({ id: item.id, sort_order: i }));
+    fetch('/api/products/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders }),
+    }).catch(() => loadProducts()); // 실패 시에만 재조회
+  }
+
+  /** 필터링된 목록 순서를 products 배열에 즉시 반영 */
+  function applyOptimisticOrder(newList: Product[]) {
     const sectionIds = new Set(newList.map(x => x.id));
     let cursor = 0;
     setProducts(prev => prev.map(p => {
       if (!sectionIds.has(p.id)) return p;
       return newList[cursor++];
     }));
-    // 서버 동기화
-    const orders = newList.map((item, i) => ({ id: item.id, sort_order: i }));
-    await fetch('/api/products/reorder', {
+  }
+
+  /**
+   * 셔플 — 랭킹(TOP5) 제외 나머지만 무작위 순서로 섞음.
+   * 랭킹 섹션 상품은 자기 위치 고수, 비랭킹 상품들끼리 자리 교환.
+   */
+  async function shuffleFilteredProducts() {
+    const nonRanking = filteredProducts.filter(p => p.section !== 'ranking');
+    if (nonRanking.length < 2) return;
+    if (!confirm(`TOP5(랭킹) 제외한 ${nonRanking.length}개 상품을 무작위로 섞을까요?`)) return;
+    // 비랭킹만 셔플
+    const shuffledNonRanking = [...nonRanking].sort(() => Math.random() - 0.5);
+    let cursor = 0;
+    const merged = filteredProducts.map(p =>
+      p.section === 'ranking' ? p : shuffledNonRanking[cursor++]
+    );
+    applyOptimisticOrder(merged);
+    const orders = merged.map((item, i) => ({ id: item.id, sort_order: i }));
+    fetch('/api/products/reorder', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ orders }),
-    });
-    loadProducts();
+    }).catch(() => loadProducts());
   }
 
   // 상품 등록
@@ -1919,6 +1946,24 @@ export default function AdminPage() {
                     <p style={{ fontSize: 13, color: C.sub, margin: 0 }}>등록된 모든 상품이 정상이에요 👍</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 셔플 버튼 — TOP5 제외 나머지 무작위 섞기 */}
+            {!productsLoading && filteredProducts.filter(p => p.section !== 'ranking').length >= 2 && (
+              <div style={{ margin: '0 16px 12px', display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={shuffleFilteredProducts}
+                  style={{
+                    padding: '8px 14px', borderRadius: 10, border: `1px solid ${C.border}`,
+                    background: C.card, color: C.sub, fontSize: 12, fontWeight: 600,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    display: 'flex', alignItems: 'center', gap: 6,
+                  }}
+                  title="TOP5 제외한 나머지 상품 순서 무작위 섞기"
+                >
+                  🎲 셔플
+                </button>
               </div>
             )}
 
