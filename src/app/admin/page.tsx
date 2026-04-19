@@ -322,13 +322,13 @@ export default function AdminPage() {
   }
 
   /**
-   * 셔플 — 서버에서 원자적으로 실행 (DB 순서 변경 + shuffle_bucket 기록).
-   * 다음 자동 셔플 bucket 경계까지 이 순서 유지됨.
+   * 셔플 — 서버에서 원자적으로 실행 (DB 순서 변경).
+   * TOP5 포함 pinned 아닌 모든 상품 대상.
    */
   async function shuffleFilteredProducts() {
-    const nonRanking = filteredProducts.filter(p => p.section !== 'ranking');
-    if (nonRanking.length < 2) return;
-    if (!confirm(`TOP5(랭킹) 제외한 ${nonRanking.length}개 상품을 무작위로 섞을까요?\n프론트에도 즉시 반영됩니다.`)) return;
+    const shufflable = filteredProducts.filter(p => !p.pinned);
+    if (shufflable.length < 2) return;
+    if (!confirm(`핀 고정 제외 ${shufflable.length}개 상품을 무작위로 섞을까요?\n프론트에도 즉시 반영됩니다.`)) return;
     try {
       const res = await fetch('/api/products/shuffle-now', { method: 'POST' });
       if (!res.ok) throw new Error(`status ${res.status}`);
@@ -2152,7 +2152,7 @@ export default function AdminPage() {
             )}
 
             {/* 셔플 버튼 — 지금 바로 한 번 섞기 */}
-            {!productsLoading && filteredProducts.filter(p => p.section !== 'ranking').length >= 2 && (
+            {!productsLoading && filteredProducts.filter(p => !p.pinned).length >= 2 && (
               <div style={{ margin: '0 16px 12px', display: 'flex', justifyContent: 'flex-end' }}>
                 <button
                   onClick={shuffleFilteredProducts}

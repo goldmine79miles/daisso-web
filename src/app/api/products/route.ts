@@ -35,9 +35,11 @@ async function maybeAutoShuffle() {
   // 마지막 셔플 이후 interval 시간 안 지났으면 건너뜀 (로그인/재방문 영향 없음)
   if (lastShuffleAt > 0 && now - lastShuffleAt < intervalMs) return;
 
-  // 셔플 대상: 활성 + non-ranking + 고정 핀 아닌 것
+  // 셔플 대상: 활성 + 고정 핀 아닌 것 (TOP5 포함 = 랭킹 섹션도 섞임)
+  // 랭킹은 ranked_at 순으로 TOP5 UI 정렬되므로 sort_order 섞여도 TOP5 표시 영향 없음
+  // 단, pinned는 sort_order로 TOP5 정렬되니까 제외해서 고정 순서 보존
   const sql = getDb();
-  const rows = await sql`SELECT id FROM products WHERE is_active = true AND section != 'ranking' AND (pinned IS NULL OR pinned = false) ORDER BY sort_order ASC, created_at DESC`;
+  const rows = await sql`SELECT id FROM products WHERE is_active = true AND (pinned IS NULL OR pinned = false) ORDER BY sort_order ASC, created_at DESC`;
   const list = rows as Array<{ id: number }>;
   if (list.length < 2) {
     await setSetting('shuffle_at', String(now));

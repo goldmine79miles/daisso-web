@@ -17,11 +17,10 @@ export async function POST(req: NextRequest) {
   try {
     const sql = getDb();
 
-    // 셔플 대상: 활성 + non-ranking + 고정 핀 아닌 것
+    // 셔플 대상: 활성 + 고정 핀 아닌 것 (TOP5 포함, pinned만 고정 순서 유지)
     const rows = await sql`
       SELECT id FROM products
       WHERE is_active = true
-        AND section != 'ranking'
         AND (pinned IS NULL OR pinned = false)
       ORDER BY sort_order ASC, created_at DESC
     `;
