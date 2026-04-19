@@ -440,18 +440,7 @@ export default function AdminPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!authed) return;
-    (async () => {
-      setProductsLoading(true);
-      try {
-        const res = await fetch('/api/products?active=all');
-        const json = await res.json();
-        setProducts(json.data || []);
-      } catch {
-        await fetch('/api/db/init', { method: 'POST' });
-        setProducts([]);
-      }
-      setProductsLoading(false);
-    })();
+    loadProducts(); // 이 함수가 products + top5 둘 다 로드
   }, [authed]);
 
   /* ─── 조기 리턴 전에 선언 필수 훅들 (hook order 안정) ─────────────────────────── */
