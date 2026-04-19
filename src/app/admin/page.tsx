@@ -244,6 +244,7 @@ export default function AdminPage() {
 
   // 상품 관리
   const [products, setProducts] = useState<Product[]>([]);
+  const [top5, setTop5] = useState<Product[]>([]);
   const [productsLoading, setProductsLoading] = useState(false);
   const [filterSection, setFilterSection] = useState('all');
   const [filterPlatform, setFilterPlatform] = useState('all');
@@ -531,14 +532,38 @@ export default function AdminPage() {
   async function loadProducts() {
     setProductsLoading(true);
     try {
-      const res = await fetch('/api/products?active=all');
-      const json = await res.json();
-      setProducts(json.data || []);
+      const [resAll, resTop] = await Promise.all([
+        fetch('/api/products?active=all'),
+        fetch('/api/products?section=ranking'),
+      ]);
+      const jAll = await resAll.json();
+      const jTop = await resTop.json();
+      setProducts(jAll.data || []);
+      setTop5((jTop.data || []).slice(0, 5));
     } catch {
       await fetch('/api/db/init', { method: 'POST' });
       setProducts([]);
+      setTop5([]);
     }
     setProductsLoading(false);
+  }
+
+  /** TOP5 내 두 위치 스왑 (i → i+1 또는 i → i-1) */
+  async function swapTop5(i: number, j: number) {
+    if (i < 0 || j < 0 || i >= top5.length || j >= top5.length || i === j) return;
+    const newTop = [...top5];
+    [newTop[i], newTop[j]] = [newTop[j], newTop[i]];
+    setTop5(newTop);
+    // sort_order 재할당 — TOP5 + 나머지 모두 일괄 전송
+    const top5Ids = new Set(newTop.map(p => p.id));
+    const rest = products.filter(p => !top5Ids.has(p.id));
+    const merged = [...newTop, ...rest];
+    const orders = merged.map((item, idx) => ({ id: item.id, sort_order: idx }));
+    fetch('/api/products/reorder', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders }),
+    }).catch(() => loadProducts());
   }
 
   /* ─── 상품 CRUD ─────────────────────────── */
@@ -2009,6 +2034,79 @@ export default function AdminPage() {
                     <p style={{ fontSize: 13, color: C.sub, margin: 0 }}>등록된 모든 상품이 정상이에요 👍</p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* 🔥 현재 TOP5 미리보기 + 순서 조정 (프론트 노출 순서와 동일) */}
+            {!productsLoading && top5.length > 0 && (
+              <div style={{ margin: '0 16px 16px', background: C.card, border: `1px solid ${C.border}`, borderRadius: 14, padding: '14px 16px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                  <div>
+                    <h3 style={{ fontSize: 14, fontWeight: 800, margin: 0, color: C.text }}>🔥 지금 TOP 5</h3>
+                    <p style={{ fontSize: 11, color: C.sub, margin: '2px 0 0' }}>프론트 노출 순서 · ▲▼로 순위 변경</p>
+                  </div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+                  {top5.map((p, i) => (
+                    <div key={p.id} style={{
+                      position: 'relative', background: C.bg, borderRadius: 10, overflow: 'hidden',
+                      border: `1px solid ${C.border}`,
+                    }}>
+                      <div style={{ position: 'relative', aspectRatio: '1', background: C.card }}>
+                        {p.image_url ? (
+                          <img src={p.image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+                        ) : (
+                          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>📷</div>
+                        )}
+                        <span style={{
+                          position: 'absolute', top: 4, left: 4,
+                          background: i < 3 ? C.primary : '#6B7280', color: '#fff',
+                          fontSize: 11, fontWeight: 900, padding: '2px 7px', borderRadius: 6,
+                          boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+                        }}>
+                          {i + 1}
+                        </span>
+                        {p.pinned && (
+                          <span style={{ position: 'absolute', top: 4, right: 4, fontSize: 11 }}>📌</span>
+                        )}
+                      </div>
+                      <div style={{ padding: '6px 6px 8px' }}>
+                        <p style={{
+                          fontSize: 10, fontWeight: 600, margin: 0, color: C.text, lineHeight: 1.3,
+                          display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          minHeight: 26,
+                        }}>
+                          {p.title}
+                        </p>
+                        <div style={{ display: 'flex', gap: 2, marginTop: 4, justifyContent: 'center' }}>
+                          <button
+                            onClick={() => swapTop5(i, i - 1)}
+                            disabled={i === 0}
+                            style={{
+                              flex: 1, padding: 3, border: 'none',
+                              background: i === 0 ? C.bg : `${C.primary}15`,
+                              color: i === 0 ? C.border : C.primary,
+                              fontSize: 10, fontWeight: 700, borderRadius: 5,
+                              cursor: i === 0 ? 'default' : 'pointer', fontFamily: 'inherit',
+                            }}
+                          >◀</button>
+                          <button
+                            onClick={() => swapTop5(i, i + 1)}
+                            disabled={i === top5.length - 1}
+                            style={{
+                              flex: 1, padding: 3, border: 'none',
+                              background: i === top5.length - 1 ? C.bg : `${C.primary}15`,
+                              color: i === top5.length - 1 ? C.border : C.primary,
+                              fontSize: 10, fontWeight: 700, borderRadius: 5,
+                              cursor: i === top5.length - 1 ? 'default' : 'pointer', fontFamily: 'inherit',
+                            }}
+                          >▶</button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
