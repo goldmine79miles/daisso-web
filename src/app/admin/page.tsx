@@ -537,6 +537,33 @@ export default function AdminPage() {
     setProductsLoading(false);
   }
 
+  /** TOP5에서 한 상품 탈락시키기 — section을 recommend로 바꾸고 ranked_at 초기화 */
+  async function demoteFromTop5(p: Product) {
+    if (!confirm(`"${p.title.slice(0, 30)}..." 를 TOP5에서 내리고 추천으로 보낼까요?`)) return;
+    try {
+      const res = await fetch(`/api/products/${p.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...p,
+          section: 'recommend',
+          pinned: false, // 혹시 pinned였다면 같이 해제
+          review_highlights: Array.isArray(p.review_highlights)
+            ? p.review_highlights
+            : (typeof p.review_highlights === 'string' && p.review_highlights
+                ? (() => { try { return JSON.parse(p.review_highlights as unknown as string); } catch { return []; } })()
+                : []),
+          rating: p.rating ?? 0,
+          review_count: p.review_count ?? 0,
+        }),
+      });
+      if (!res.ok) throw new Error(`status ${res.status}`);
+      loadProducts(); // TOP5 + 전체 리스트 갱신
+    } catch (e) {
+      alert('탈락 실패: ' + String(e));
+    }
+  }
+
   /** TOP5 내 두 위치 스왑 (i → i+1 또는 i → i-1) */
   async function swapTop5(i: number, j: number) {
     if (i < 0 || j < 0 || i >= top5.length || j >= top5.length || i === j) return;
@@ -2056,8 +2083,24 @@ export default function AdminPage() {
                           {i + 1}
                         </span>
                         {p.pinned && (
-                          <span style={{ position: 'absolute', top: 4, right: 4, fontSize: 11 }}>📌</span>
+                          <span style={{ position: 'absolute', top: 4, right: 24, fontSize: 11 }}>📌</span>
                         )}
+                        {/* TOP5 탈락 버튼 */}
+                        <button
+                          onClick={() => demoteFromTop5(p)}
+                          title="TOP5에서 내리고 추천으로 보내기"
+                          style={{
+                            position: 'absolute', top: 4, right: 4,
+                            width: 20, height: 20, borderRadius: '50%',
+                            border: 'none', background: 'rgba(0,0,0,0.55)',
+                            color: '#fff', fontSize: 12, fontWeight: 700,
+                            cursor: 'pointer', fontFamily: 'inherit',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            lineHeight: 1,
+                          }}
+                        >
+                          ✕
+                        </button>
                       </div>
                       <div style={{ padding: '6px 6px 8px' }}>
                         <p style={{
