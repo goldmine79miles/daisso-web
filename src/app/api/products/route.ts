@@ -70,9 +70,7 @@ export async function GET(req: NextRequest) {
   const sql = getDb();
 
   try {
-    // 자동 셔플 — bucket 바뀌었으면 DB에 새 순서 기록 (요청에 따라 lazy 실행)
-    await maybeAutoShuffle();
-
+    // 셔플은 아래에서 인메모리로 처리 (DB 쓰기 없음) — admin TOP5 편집이 리스트 순서에 스며들지 않음
     // neon은 tagged template만 지원 → 전체 조회 후 JS 필터
     const rows = await sql`SELECT * FROM products ORDER BY sort_order ASC, created_at DESC`;
     const all = rows as Array<Record<string, unknown>>;
@@ -134,6 +132,20 @@ export async function GET(req: NextRequest) {
 
     // 셔플은 이미 maybeAutoShuffle에서 DB sort_order로 반영됨 → 여기선 순서 조작 없음
     // TOP5는 top5 로직으로 이미 계산되어 있고, 나머지는 sort_order 그대로
+
+    // 매 요청 시 인메모리 셔플 — pinned 제외 모든 활성 상품 랜덤 배치 (같은 시간 window에선 모든 유저 동일)
+    // 기존 DB 기반 셔플 대신 응답 레벨에서 처리 → admin TOP5 편집 결과가 "가성비 제품" 리스트에 안 스며듦
+    if (section !== 'ranking') {
+      const cfg = await getShuffleConfig();
+      if (cfg.enabled) {
+        const bucketMs = cfg.intervalHours * 60 * 60 * 1000;
+        const bucket = Math.floor(Date.now() / bucketMs);
+        const pinnedItems = filtered.filter(r => r.pinned === true);
+        const shuffleable = filtered.filter(r => r.pinned !== true);
+        const shuffled = seededShuffle(shuffleable, bucket);
+        filtered = [...pinnedItems, ...shuffled];
+      }
+    }
 
     // 어드민 모드(active=all): 활성 상품 순서 + 비활성 상품을 뒤에 추가
     if (active === 'all') {
