@@ -544,7 +544,7 @@ export default function AdminPage() {
       const res = await fetch(`/api/products/${p.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ section: 'recommend', pinned: false }),
+        body: JSON.stringify({ section: 'recommend', pinned: false, excluded_from_top5: true }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {

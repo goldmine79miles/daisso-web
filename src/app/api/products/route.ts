@@ -108,9 +108,10 @@ export async function GET(req: NextRequest) {
     const fixedIds = new Set(fixedRanking.map(r => r.id));
     const remainingSlots = Math.max(0, 5 - fixedRanking.length);
 
-    // 만료된 임시 랭킹도 recommend 풀에 포함
+    // 만료된 임시 랭킹도 recommend 풀에 포함. 단, 어드민이 TOP5에서 내린(excluded_from_top5) 상품은 자동 승급 제외
     const recommendPool = filtered.filter(r => {
       if (fixedIds.has(r.id)) return false;
+      if (r.excluded_from_top5 === true) return false; // 어드민이 X로 내린 것은 자동 승급 금지
       if (r.section === 'recommend') return true;
       if (r.section === 'ranking' && r.pinned !== true) return true; // 만료 랭킹
       return false;

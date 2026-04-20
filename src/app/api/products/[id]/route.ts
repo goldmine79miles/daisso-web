@@ -29,7 +29,9 @@ export async function PUT(req: NextRequest, { params }: Props) {
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS ranked_at TIMESTAMP`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS rating NUMERIC(2,1) DEFAULT 0`;
       await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS review_count INTEGER DEFAULT 0`;
+      await sql`ALTER TABLE products ADD COLUMN IF NOT EXISTS excluded_from_top5 BOOLEAN DEFAULT false`;
     } catch { /* */ }
+    const { excluded_from_top5 } = body;
 
     // 현재 section 확인 — 랭킹으로 새로 올라가면 ranked_at 갱신
     const current = await sql`SELECT section FROM products WHERE id = ${Number(id)}`;
@@ -56,6 +58,7 @@ export async function PUT(req: NextRequest, { params }: Props) {
         rating = COALESCE(${typeof rating === 'number' ? rating : null}, rating),
         review_count = COALESCE(${typeof review_count === 'number' ? review_count : null}, review_count),
         pinned = COALESCE(${typeof pinned === 'boolean' ? pinned : null}, pinned),
+        excluded_from_top5 = COALESCE(${typeof excluded_from_top5 === 'boolean' ? excluded_from_top5 : null}, excluded_from_top5),
         ranked_at = CASE
           WHEN ${willDemote} THEN NULL
           WHEN ${willPromote} THEN ${rankedAtExpr}::timestamp
