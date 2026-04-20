@@ -537,30 +537,23 @@ export default function AdminPage() {
     setProductsLoading(false);
   }
 
-  /** TOP5에서 한 상품 탈락시키기 — section을 recommend로 바꾸고 ranked_at 초기화 */
+  /** TOP5에서 한 상품 탈락시키기 — section을 recommend로 (PUT의 COALESCE 로직이 나머지 필드 그대로 유지) */
   async function demoteFromTop5(p: Product) {
-    if (!confirm(`"${p.title.slice(0, 30)}..." 를 TOP5에서 내리고 추천으로 보낼까요?`)) return;
+    if (!confirm(`"${p.title.slice(0, 30)}" 를 TOP5에서 내릴까요?`)) return;
     try {
       const res = await fetch(`/api/products/${p.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...p,
-          section: 'recommend',
-          pinned: false, // 혹시 pinned였다면 같이 해제
-          review_highlights: Array.isArray(p.review_highlights)
-            ? p.review_highlights
-            : (typeof p.review_highlights === 'string' && p.review_highlights
-                ? (() => { try { return JSON.parse(p.review_highlights as unknown as string); } catch { return []; } })()
-                : []),
-          rating: p.rating ?? 0,
-          review_count: p.review_count ?? 0,
-        }),
+        body: JSON.stringify({ section: 'recommend', pinned: false }),
       });
-      if (!res.ok) throw new Error(`status ${res.status}`);
-      loadProducts(); // TOP5 + 전체 리스트 갱신
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        alert(`탈락 실패 (${res.status}): ${json?.error || 'Unknown'}`);
+        return;
+      }
+      loadProducts();
     } catch (e) {
-      alert('탈락 실패: ' + String(e));
+      alert('탈락 실패 (네트워크): ' + String(e));
     }
   }
 
