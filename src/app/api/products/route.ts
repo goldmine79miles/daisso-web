@@ -100,7 +100,12 @@ export async function GET(req: NextRequest) {
     const permaPinned = filtered.filter(isPermaPinned)
       .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
     const tempRanking = filtered.filter(isTempRanking)
-      .sort((a, b) => new Date(String(b.ranked_at)).getTime() - new Date(String(a.ranked_at)).getTime());
+      .sort((a, b) => {
+        const so = (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+        if (so !== 0) return so;
+        // sort_order 동률일 때만 ranked_at 최신 우선 (관리자가 아직 순위 안 만진 신규 승급 상품)
+        return new Date(String(b.ranked_at)).getTime() - new Date(String(a.ranked_at)).getTime();
+      });
 
     const fixedRanking = [...permaPinned, ...tempRanking].slice(0, 5);
     const fixedIds = new Set(fixedRanking.map(r => r.id));
