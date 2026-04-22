@@ -82,48 +82,32 @@ export async function GET(req: NextRequest) {
     if (category && category !== 'all') filtered = filtered.filter(r => r.category === category);
     if (platform) filtered = filtered.filter(r => r.platform === platform);
 
-    // 자동 TOP5 승급 + 강제 고정 + 24시간 만료:
-    // - pinned=true → 무조건 TOP5 (영구)
-    // - section='ranking' + pinned=false + ranked_at < 24h → TOP5 (임시)
-    // - 나머지 자리 → section='recommend' 중 view_count 상위로 채움
-    // - section='ranking' + pinned=false + ranked_at >= 24h → recommend 로 fallback (만료)
-    const now = Date.now();
-    const DAY_MS = 24 * 60 * 60 * 1000;
-
+    // TOP5 = 조회수 기반 (출시 안정기 진입 후 전환)
+    // - pinned=true → 무조건 최상단 (어드민이 강제 고정한 상품, pinned끼리는 sort_order 순)
+    // - 나머지 자리 → 전체 활성 상품 중 view_count DESC
+    // - excluded_from_top5=true → TOP5 노출 완전 제외 (어드민 X 버튼)
     const isPermaPinned = (r: Record<string, unknown>) => r.pinned === true;
-    const isTempRanking = (r: Record<string, unknown>) => {
-      if (r.section !== 'ranking' || r.pinned === true) return false;
-      const t = r.ranked_at ? new Date(String(r.ranked_at)).getTime() : 0;
-      return t > 0 && (now - t) < DAY_MS;
-    };
 
     const permaPinned = filtered.filter(isPermaPinned)
       .sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
-    const tempRanking = filtered.filter(isTempRanking)
-      .sort((a, b) => {
-        const so = (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
-        if (so !== 0) return so;
-        // sort_order 동률일 때만 ranked_at 최신 우선 (관리자가 아직 순위 안 만진 신규 승급 상품)
-        return new Date(String(b.ranked_at)).getTime() - new Date(String(a.ranked_at)).getTime();
-      });
+    const fixedIds = new Set(permaPinned.map(r => r.id));
 
-    const fixedRanking = [...permaPinned, ...tempRanking].slice(0, 5);
-    const fixedIds = new Set(fixedRanking.map(r => r.id));
-    const remainingSlots = Math.max(0, 5 - fixedRanking.length);
-
-    // 만료된 임시 랭킹도 recommend 풀에 포함. 단, 어드민이 TOP5에서 내린(excluded_from_top5) 상품은 자동 승급 제외
-    const recommendPool = filtered.filter(r => {
+    // 조회수 기반 pool: 핀 아닌 것 + 배제 안 된 것 전체
+    const viewPool = filtered.filter(r => {
       if (fixedIds.has(r.id)) return false;
-      if (r.excluded_from_top5 === true) return false; // 어드민이 X로 내린 것은 자동 승급 금지
-      if (r.section === 'recommend') return true;
-      if (r.section === 'ranking' && r.pinned !== true) return true; // 만료 랭킹
-      return false;
+      if (r.excluded_from_top5 === true) return false;
+      return true;
     });
 
-    const autoPicks = [...recommendPool]
-      .sort((a, b) => (Number(b.view_count) || 0) - (Number(a.view_count) || 0))
-      .slice(0, remainingSlots);
-    const top5 = [...fixedRanking, ...autoPicks].slice(0, 5);
+    const viewPicks = [...viewPool]
+      .sort((a, b) => {
+        const vc = (Number(b.view_count) || 0) - (Number(a.view_count) || 0);
+        if (vc !== 0) return vc;
+        return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0); // 동률이면 sort_order 보조
+      });
+
+    const remainingSlots = Math.max(0, 5 - permaPinned.slice(0, 5).length);
+    const top5 = [...permaPinned.slice(0, 5), ...viewPicks.slice(0, remainingSlots)];
     const top5Ids = new Set(top5.map(r => r.id));
 
     if (section === 'ranking') {
