@@ -99,15 +99,22 @@ export async function GET(req: NextRequest) {
       return true;
     });
 
-    const viewPicks = [...viewPool]
+    // 조회수 상위 10개 풀 → 1시간 버킷으로 셔플 → 5개 (조회수 정체 시 다양성 확보)
+    const TOP_POOL_SIZE = 10;
+    const SHUFFLE_BUCKET_HOURS = 1;
+    const sortedByViews = [...viewPool]
       .sort((a, b) => {
         const vc = (Number(b.view_count) || 0) - (Number(a.view_count) || 0);
         if (vc !== 0) return vc;
-        return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0); // 동률이면 sort_order 보조
-      });
+        return (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0);
+      })
+      .slice(0, TOP_POOL_SIZE);
+
+    const top5Bucket = Math.floor(Date.now() / (SHUFFLE_BUCKET_HOURS * 3600_000));
+    const shuffledTop = seededShuffle(sortedByViews, top5Bucket);
 
     const remainingSlots = Math.max(0, 5 - permaPinned.slice(0, 5).length);
-    const top5 = [...permaPinned.slice(0, 5), ...viewPicks.slice(0, remainingSlots)];
+    const top5 = [...permaPinned.slice(0, 5), ...shuffledTop.slice(0, remainingSlots)];
     const top5Ids = new Set(top5.map(r => r.id));
 
     if (section === 'ranking') {
