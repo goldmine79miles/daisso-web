@@ -73,26 +73,35 @@ async function runHealthCheck() {
       await new Promise(r => setTimeout(r, 500));
     }
 
-    // 2. 이미지 URL 체크 (CDN은 봇 차단 안 하므로 안전)
+    // 2. 이미지 URL 체크 — 2회 재시도 (HEAD → GET fallback). 그래도 실패하면 알림만,
+    //    DB image_url 자동 NULL 처리는 하지 않음 (false positive 잦음 — 콜드스타트, CDN 일시 장애 등)
     if (p.image_url) {
-      try {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 5000);
-        const imgRes = await fetch(p.image_url, {
-          method: 'HEAD',
-          signal: controller.signal,
-          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; DaissoBot/1.0)' },
-        });
-        clearTimeout(timeout);
-
-        if (imgRes.status >= 400) {
-          await sql`UPDATE products SET image_url = NULL, updated_at = NOW() WHERE id = ${p.id}`;
-          results.push({ id: p.id, title: p.title, issue: `이미지 깨짐 (${imgRes.status})`, action: '이미지 제거', severity: 'warning' });
-          issues++;
+      let imageOk = false;
+      for (let attempt = 0; attempt < 2 && !imageOk; attempt++) {
+        try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 8000);
+          const method = attempt === 0 ? 'HEAD' : 'GET';
+          const imgRes = await fetch(p.image_url, {
+            method,
+            signal: controller.signal,
+            redirect: 'follow',
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36' },
+          });
+          clearTimeout(timeout);
+          if (imgRes.status < 400) imageOk = true;
+        } catch {
+          // 다음 attempt 시도
         }
-      } catch {
-        await sql`UPDATE products SET image_url = NULL, updated_at = NOW() WHERE id = ${p.id}`;
-        results.push({ id: p.id, title: p.title, issue: '이미지 접속 불가', action: '이미지 제거', severity: 'warning' });
+      }
+      if (!imageOk) {
+        // ❗ image_url 자동 NULL 처리 X — 알림만 보내고 어드민이 직접 확인
+        results.push({
+          id: p.id, title: p.title,
+          issue: '이미지 접속 실패 (2회 재시도 후) — 자동 처리 안 함',
+          action: '어드민에서 직접 확인',
+          severity: 'warning',
+        });
         issues++;
       }
     }
