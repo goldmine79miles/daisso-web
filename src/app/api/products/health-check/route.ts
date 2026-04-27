@@ -73,9 +73,12 @@ async function runHealthCheck() {
       await new Promise(r => setTimeout(r, 500));
     }
 
-    // 2. 이미지 URL 체크 — 2회 재시도 (HEAD → GET fallback). 그래도 실패하면 알림만,
-    //    DB image_url 자동 NULL 처리는 하지 않음 (false positive 잦음 — 콜드스타트, CDN 일시 장애 등)
+    // 2. 이미지 URL 체크 — 2회 재시도 (HEAD → GET fallback)
+    //    - 404/410 (확실히 죽음): image_url = NULL 처리 + 알림 (placeholder 노출되게)
+    //    - timeout/5xx/403 등 (일시 장애 가능): DB 안 건드리고 알림만
     if (p.image_url) {
+      let lastStatus: number | null = null;
+      let lastError: string | null = null;
       let imageOk = false;
       for (let attempt = 0; attempt < 2 && !imageOk; attempt++) {
         try {
@@ -89,19 +92,32 @@ async function runHealthCheck() {
             headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36' },
           });
           clearTimeout(timeout);
-          if (imgRes.status < 400) imageOk = true;
-        } catch {
-          // 다음 attempt 시도
+          lastStatus = imgRes.status;
+          if (imgRes.status < 400) { imageOk = true; break; }
+        } catch (e) {
+          lastError = String(e).slice(0, 80);
         }
       }
       if (!imageOk) {
-        // ❗ image_url 자동 NULL 처리 X — 알림만 보내고 어드민이 직접 확인
-        results.push({
-          id: p.id, title: p.title,
-          issue: '이미지 접속 실패 (2회 재시도 후) — 자동 처리 안 함',
-          action: '어드민에서 직접 확인',
-          severity: 'warning',
-        });
+        // 확실히 죽은 이미지 (404/410) 만 NULL 처리
+        const definitivelyDead = lastStatus === 404 || lastStatus === 410;
+        if (definitivelyDead) {
+          await sql`UPDATE products SET image_url = NULL, updated_at = NOW() WHERE id = ${p.id}`;
+          results.push({
+            id: p.id, title: p.title,
+            issue: `이미지 ${lastStatus} — 완전 삭제됨, NULL 처리`,
+            action: '플레이스홀더 노출',
+            severity: 'warning',
+          });
+        } else {
+          // timeout / 5xx / 403 등 일시적일 가능성 — DB 보존
+          results.push({
+            id: p.id, title: p.title,
+            issue: `이미지 접속 실패 (${lastError || 'status ' + lastStatus}) — 일시 장애 가능, 보존`,
+            action: '어드민 확인 권장',
+            severity: 'warning',
+          });
+        }
         issues++;
       }
     }
